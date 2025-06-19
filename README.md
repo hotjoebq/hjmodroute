@@ -56,13 +56,13 @@ Before deploying, ensure you have:
 # Navigate to the azure-ai-foundry-bicep directory
 
 # Deploy to development environment
-.\scripts\deploy.ps1 -ResourceGroupName "rg-ai-model-router-dev" -Environment "dev"
+.\scripts\deploy.ps1 -ResourceGroupName "YOUR_RESOURCE_GROUP" -Environment "dev"
 
 # Deploy to production environment  
-.\scripts\deploy.ps1 -ResourceGroupName "rg-ai-model-router-prod" -Environment "prod"
+.\scripts\deploy.ps1 -ResourceGroupName "YOUR_RESOURCE_GROUP" -Environment "prod"
 
 # Preview changes before deployment
-.\scripts\deploy.ps1 -ResourceGroupName "rg-ai-model-router-dev" -Environment "dev" -WhatIf
+.\scripts\deploy.ps1 -ResourceGroupName "YOUR_RESOURCE_GROUP" -Environment "dev" -WhatIf
 ```
 
 ### Option 2: Bash (Linux/Mac)
@@ -72,24 +72,24 @@ Before deploying, ensure you have:
 chmod +x scripts/deploy.sh
 
 # Deploy to development environment
-./scripts/deploy.sh -g "rg-ai-model-router-dev" -e "dev"
+./scripts/deploy.sh -g "YOUR_RESOURCE_GROUP" -l "YOUR_AZURE_REGION" -e "dev"
 
 # Deploy to production environment
-./scripts/deploy.sh -g "rg-ai-model-router-prod" -e "prod"
+./scripts/deploy.sh -g "YOUR_RESOURCE_GROUP" -l "YOUR_AZURE_REGION" -e "prod"
 
 # Preview changes before deployment
-./scripts/deploy.sh -g "rg-ai-model-router-dev" -e "dev" -w
+./scripts/deploy.sh -g "YOUR_RESOURCE_GROUP" -l "YOUR_AZURE_REGION" -e "dev" -w
 ```
 
 ### Option 3: Azure CLI Direct
 
 ```bash
 # Create resource group
-az group create --name "rg-ai-model-router-dev" --location "eastus"
+az group create --name "YOUR_RESOURCE_GROUP" --location "YOUR_AZURE_REGION"
 
 # Deploy using Azure CLI
 az deployment group create \
-  --resource-group "rg-ai-model-router-dev" \
+  --resource-group "YOUR_RESOURCE_GROUP" \
   --template-file main.bicep \
   --parameters parameters/parameters-dev.json
 ```
@@ -107,8 +107,8 @@ The deployment uses parameter files for different environments:
 
 | Parameter | Description | Default | Options |
 |-----------|-------------|---------|---------|
-| `projectName` | Base name for all resources | `aimodelrouter` | 2-12 characters |
-| `location` | Azure region | `eastus` | Any Azure region |
+| `projectName` | Base name for all resources | Required | 2-12 characters |
+| `location` | Azure region | Required | Any Azure region |
 | `environment` | Environment type | `dev` | `dev`, `test`, `prod` |
 | `authMode` | Authentication mode | `Key` | `Key`, `AMLToken`, `AADToken` |
 | `publicNetworkAccess` | Enable public access | `true` | `true`, `false` |
@@ -121,13 +121,13 @@ Edit the parameter files to customize your deployment:
 {
   "parameters": {
     "projectName": {
-      "value": "myaiproject"
+      "value": "YOUR_PROJECT_NAME"
     },
     "location": {
-      "value": "westus2"
+      "value": "YOUR_AZURE_REGION"
     },
     "environment": {
-      "value": "prod"
+      "value": "YOUR_ENVIRONMENT"
     }
   }
 }
@@ -144,9 +144,9 @@ After successful deployment, you'll receive:
 
 Example output:
 ```
-Model Router Endpoint URL: https://myproject-model-router-prod.eastus.inference.ml.azure.com/score
-Primary Key: abc123...
-AI Hub Name: myproject-ai-hub-prod-abc123
+Model Router Endpoint URL: https://YOUR_PROJECT-model-router-YOUR_ENV.YOUR_REGION.inference.ml.azure.com/score
+Primary Key: YOUR_API_KEY...
+AI Hub Name: YOUR_PROJECT-ai-hub-YOUR_ENV-UNIQUE_ID
 ```
 
 ## 🔧 Using the Model Router
@@ -155,8 +155,8 @@ AI Hub Name: myproject-ai-hub-prod-abc123
 
 ```bash
 # Using the deployed Model Router endpoint
-curl -X POST "https://your-endpoint-url/score" \
-  -H "Authorization: Bearer YOUR_KEY" \
+curl -X POST "https://YOUR_ENDPOINT_URL/score" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [
@@ -171,8 +171,8 @@ curl -X POST "https://your-endpoint-url/score" \
 ```python
 import requests
 
-endpoint_url = "https://your-endpoint-url/score"
-api_key = "your-api-key"
+endpoint_url = "https://YOUR_ENDPOINT_URL/score"
+api_key = "YOUR_API_KEY"
 
 headers = {
     "Authorization": f"Bearer {api_key}",

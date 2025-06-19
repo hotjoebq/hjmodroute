@@ -2,7 +2,7 @@
 
 set -e
 
-LOCATION="eastus"
+LOCATION=""
 ENVIRONMENT="dev"
 PARAMETER_FILE=""
 WHAT_IF=false
@@ -12,7 +12,7 @@ usage() {
     echo ""
     echo "Options:"
     echo "  -g, --resource-group    Name of the Azure Resource Group to deploy to (required)"
-    echo "  -l, --location         Azure region for deployment (default: eastus)"
+    echo "  -l, --location         Azure region for deployment (required)"
     echo "  -e, --environment      Environment type: dev, test, or prod (default: dev)"
     echo "  -p, --parameter-file   Path to parameter file (optional, will use default based on environment)"
     echo "  -w, --what-if          Run deployment in what-if mode to preview changes"
@@ -55,6 +55,12 @@ done
 
 if [ -z "$RESOURCE_GROUP_NAME" ]; then
     echo "❌ Error: Resource group name is required"
+    usage
+    exit 1
+fi
+
+if [ -z "$LOCATION" ]; then
+    echo "❌ Error: Location is required"
     usage
     exit 1
 fi

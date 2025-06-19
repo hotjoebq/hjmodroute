@@ -27,13 +27,13 @@ azure-ai-foundry-bicep/
 ### Option 1: Automated Deployment (Recommended)
 ```bash
 # Deploy infrastructure and application code
-./deploy-webapp.sh -g "your-resource-group-name" --deploy-code
+./deploy-webapp.sh -g "YOUR_RESOURCE_GROUP" -p "YOUR_PROJECT_NAME" --deploy-code
 ```
 
 ### Option 2: Step-by-Step Deployment
 ```bash
 # 1. Deploy infrastructure only
-./deploy-webapp.sh -g "your-resource-group-name"
+./deploy-webapp.sh -g "YOUR_RESOURCE_GROUP" -p "YOUR_PROJECT_NAME"
 
 # 2. Deploy application code manually (follow the output instructions)
 ```
@@ -42,7 +42,7 @@ azure-ai-foundry-bicep/
 ```bash
 # Deploy using Azure CLI directly
 az deployment group create \
-  --resource-group "your-resource-group-name" \
+  --resource-group "YOUR_RESOURCE_GROUP" \
   --template-file main.bicep \
   --parameters @parameters/parameters-webapp.json
 ```
@@ -68,7 +68,7 @@ az deployment group create \
 - Azure CLI installed and authenticated (`az login`)
 - Azure subscription with appropriate permissions
 - Resource group created (or use existing one)
-- Azure AI Foundry Model Router deployed (`hj619-model-router`)
+- Azure AI Foundry Model Router deployed in your Azure subscription
 
 ## 🔧 Configuration
 
@@ -107,7 +107,7 @@ After deployment, configure your Azure Model Router credentials:
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
 │ Azure Static    │───▶│ Azure App Service│───▶│ Azure AI Foundry    │
 │ Web Apps        │    │ (FastAPI)        │    │ Model Router        │
-│ (React Frontend)│    │ (Backend API)    │    │ (hj619-model-router)│
+│ (React Frontend)│    │ (Backend API)    │    │ (YOUR_MODEL_ROUTER) │
 └─────────────────┘    └──────────────────┘    └─────────────────────┘
 ```
 

@@ -3,13 +3,13 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "projectName": {
-      "value": "myaiproject"
+      "value": "YOUR_PROJECT_NAME"
     },
     "environment": {
-      "value": "dev"
+      "value": "YOUR_ENVIRONMENT"
     },
     "location": {
-      "value": "eastus2"
+      "value": "YOUR_AZURE_REGION"
     },
     "appServicePlanSku": {
       "value": "B1"

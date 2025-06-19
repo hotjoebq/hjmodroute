@@ -18,9 +18,9 @@ cd azure-ai-foundry-bicep
 
 # Deploy the infrastructure (replace with your resource group name)
 az deployment group create \
-  --resource-group "your-resource-group-name" \
+  --resource-group "YOUR_RESOURCE_GROUP" \
   --template-file main.bicep \
-  --parameters projectName="myaiproject" environment="dev"
+  --parameters projectName="YOUR_PROJECT_NAME" environment="YOUR_ENVIRONMENT"
 ```
 
 ### 2. Get Deployment Outputs
@@ -28,27 +28,27 @@ az deployment group create \
 ```bash
 # Get the backend App Service name
 BACKEND_APP_NAME=$(az deployment group show \
-  --resource-group "your-resource-group-name" \
+  --resource-group "YOUR_RESOURCE_GROUP" \
   --name main \
   --query 'properties.outputs.backendAppServiceName.value' \
   --output tsv)
 
 # Get the frontend Static Web App name
 FRONTEND_APP_NAME=$(az deployment group show \
-  --resource-group "your-resource-group-name" \
+  --resource-group "YOUR_RESOURCE_GROUP" \
   --name main \
   --query 'properties.outputs.frontendStaticWebAppName.value' \
   --output tsv)
 
 # Get the URLs
 BACKEND_URL=$(az deployment group show \
-  --resource-group "your-resource-group-name" \
+  --resource-group "YOUR_RESOURCE_GROUP" \
   --name main \
   --query 'properties.outputs.backendUrl.value' \
   --output tsv)
 
 FRONTEND_URL=$(az deployment group show \
-  --resource-group "your-resource-group-name" \
+  --resource-group "YOUR_RESOURCE_GROUP" \
   --name main \
   --query 'properties.outputs.frontendUrl.value' \
   --output tsv)
@@ -63,7 +63,7 @@ echo "Frontend URL: $FRONTEND_URL"
 ```bash
 # Deploy the backend code
 az webapp deployment source config-zip \
-  --resource-group "your-resource-group-name" \
+  --resource-group "YOUR_RESOURCE_GROUP" \
   --name "$BACKEND_APP_NAME" \
   --src webapp-code/backend.zip
 ```
@@ -84,9 +84,9 @@ If you want to pre-configure Azure Model Router credentials:
 ```bash
 # Set backend environment variables
 az webapp config appsettings set \
-  --resource-group "your-resource-group-name" \
+  --resource-group "YOUR_RESOURCE_GROUP" \
   --name "$BACKEND_APP_NAME" \
-  --settings AZURE_ENDPOINT="your-model-router-endpoint" AZURE_API_KEY="your-api-key"
+  --settings AZURE_ENDPOINT="YOUR_MODEL_ROUTER_ENDPOINT" AZURE_API_KEY="YOUR_API_KEY"
 ```
 
 ## What Gets Deployed
@@ -115,7 +115,7 @@ az webapp config appsettings set \
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
 │ Azure Static    │───▶│ Azure App Service│───▶│ Azure AI Foundry    │
 │ Web Apps        │    │ (FastAPI)        │    │ Model Router        │
-│ (React Frontend)│    │ (Backend API)    │    │ (hj619-model-router)│
+│ (React Frontend)│    │ (Backend API)    │    │ (YOUR_MODEL_ROUTER) │
 └─────────────────┘    └──────────────────┘    └─────────────────────┘
 ```
 

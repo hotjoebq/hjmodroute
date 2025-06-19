@@ -3,10 +3,10 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "projectName": {
-      "value": "aimodelrouter"
+      "value": "YOUR_PROJECT_NAME"
     },
     "location": {
-      "value": "eastus"
+      "value": "YOUR_AZURE_REGION"
     },
     "environment": {
       "value": "dev"

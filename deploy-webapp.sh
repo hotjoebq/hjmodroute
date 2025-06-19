@@ -5,7 +5,7 @@ set -e
 
 ENVIRONMENT="dev"
 RESOURCE_GROUP=""
-PROJECT_NAME="myaiproject"
+PROJECT_NAME=""
 DEPLOY_CODE=false
 
 while [[ $# -gt 0 ]]; do
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 -g <resource-group> [-e <environment>] [-p <project-name>] [--deploy-code]"
       echo "  -g, --resource-group    Azure resource group name (required)"
       echo "  -e, --environment       Environment (dev, test, prod) [default: dev]"
-      echo "  -p, --project-name      Project name [default: myaiproject]"
+      echo "  -p, --project-name      Project name (required)"
       echo "  --deploy-code           Also deploy application code after infrastructure"
       exit 0
       ;;
@@ -43,6 +43,11 @@ done
 
 if [ -z "$RESOURCE_GROUP" ]; then
   echo "Error: Resource group is required. Use -g <resource-group>"
+  exit 1
+fi
+
+if [ -z "$PROJECT_NAME" ]; then
+  echo "Error: Project name is required. Use -p <project-name>"
   exit 1
 fi
 
