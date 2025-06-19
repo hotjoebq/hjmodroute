@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "projectName": {
+      "value": "aimodelrouter"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "environment": {
+      "value": "prod"
+    },
+    "aiHubDisplayName": {
+      "value": "AI Model Router Hub - Production"
+    },
+    "aiHubDescription": {
+      "value": "Production environment for AI Model Router with intelligent routing and cost optimization"
+    },
+    "aiProjectDisplayName": {
+      "value": "AI Model Router Project - Production"
+    },
+    "aiProjectDescription": {
+      "value": "Production project for AI Model Router deployment"
+    },
+    "modelRouterName": {
+      "value": "ai-model-router-prod"
+    },
+    "authMode": {
+      "value": "Key"
+    },
+    "publicNetworkAccess": {
+      "value": true
+    },
+    "tags": {
+      "value": {
+        "Environment": "Production",
+        "Project": "AI-Model-Router",
+        "Owner": "ProductionTeam",
+        "CostCenter": "Operations",
+        "Purpose": "AI-Foundry-Model-Router-Production"
+      }
+    }
+  }
+}
