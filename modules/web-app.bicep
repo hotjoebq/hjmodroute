@@ -8,8 +8,11 @@ param tags object
 @description('App Service Plan SKU')
 param appServicePlanSku string = 'B1'
 
+@description('Skip resource creation if they already exist')
+param skipExistingResources bool = false
+
 // App Service Plan for backend
-resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
+resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = if (!skipExistingResources) {
   name: '${projectName}-webapp-plan-${environment}-${uniqueSuffix}'
   location: location
   tags: tags
@@ -24,7 +27,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
 }
 
 // App Service for backend API
-resource backendAppService 'Microsoft.Web/sites@2023-01-01' = {
+resource backendAppService 'Microsoft.Web/sites@2023-01-01' = if (!skipExistingResources) {
   name: '${projectName}-backend-${environment}-${uniqueSuffix}'
   location: location
   tags: tags
@@ -53,7 +56,7 @@ resource backendAppService 'Microsoft.Web/sites@2023-01-01' = {
 }
 
 // Static Web App for frontend
-resource staticWebApp 'Microsoft.Web/staticSites@2023-01-01' = {
+resource staticWebApp 'Microsoft.Web/staticSites@2023-01-01' = if (!skipExistingResources) {
   name: '${projectName}-frontend-${environment}-${uniqueSuffix}'
   location: location
   tags: tags

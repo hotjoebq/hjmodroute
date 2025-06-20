@@ -67,8 +67,22 @@ check_infrastructure_exists() {
     AI_HUB_NAME=$(echo "$AI_HUB_RESOURCES" | head -n1)
     UNIQUE_STRING="${AI_HUB_NAME#${AI_HUB_PATTERN}}"
     
+    AI_HUB_LOCATION=$(az resource show --resource-group "$RESOURCE_GROUP" --name "$AI_HUB_NAME" --resource-type "Microsoft.MachineLearningServices/workspaces" --query 'location' --output tsv 2>/dev/null || echo "")
+    
+    WEBAPP_PLAN_NAME="${PROJECT_NAME}-webapp-plan-${ENVIRONMENT}-${UNIQUE_STRING}"
+    EXISTING_WEBAPP=$(az resource list --resource-group "$RESOURCE_GROUP" --query "[?contains(name, '${WEBAPP_PLAN_NAME}') && type=='Microsoft.Web/serverfarms'].name" --output tsv 2>/dev/null || echo "")
+    
     echo "✅ AI Foundry infrastructure found (AI Hub: $AI_HUB_NAME)"
     echo "   Using uniqueSuffix: $UNIQUE_STRING"
+    if [ -n "$AI_HUB_LOCATION" ]; then
+      echo "   AI Hub location: $AI_HUB_LOCATION"
+    fi
+    if [ -n "$EXISTING_WEBAPP" ]; then
+      echo "   Existing web app resources detected - will skip recreation"
+      SKIP_EXISTING_RESOURCES=true
+    else
+      SKIP_EXISTING_RESOURCES=false
+    fi
     return 0
   else
     echo "❌ AI Foundry infrastructure not found. Please deploy infrastructure first using main.bicep"
@@ -89,7 +103,13 @@ if check_infrastructure_exists; then
   TEMPLATE_FILE="web-app-only.bicep"
   DEPLOYMENT_NAME="web-app-only-$(date +%Y%m%d-%H%M%S)"
   
-  LOCATION=$(az group show --name "$RESOURCE_GROUP" --query 'location' --output tsv)
+  if [ -n "$AI_HUB_LOCATION" ]; then
+    LOCATION="$AI_HUB_LOCATION"
+    echo "   Using existing infrastructure location: $LOCATION"
+  else
+    LOCATION=$(az group show --name "$RESOURCE_GROUP" --query 'location' --output tsv)
+    echo "   Fallback to resource group location: $LOCATION"
+  fi
   
   TAGS='{
     "Environment": "'$ENVIRONMENT'",
@@ -101,7 +121,7 @@ if check_infrastructure_exists; then
   az deployment group create \
     --resource-group "$RESOURCE_GROUP" \
     --template-file "$TEMPLATE_FILE" \
-    --parameters projectName="$PROJECT_NAME" environment="$ENVIRONMENT" location="$LOCATION" uniqueSuffix="$UNIQUE_STRING" tags="$TAGS" \
+    --parameters projectName="$PROJECT_NAME" environment="$ENVIRONMENT" location="$LOCATION" uniqueSuffix="$UNIQUE_STRING" tags="$TAGS" skipExistingResources="$SKIP_EXISTING_RESOURCES" \
     --name "$DEPLOYMENT_NAME" \
     --output table
 else
