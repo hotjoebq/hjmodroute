@@ -13,6 +13,9 @@ param uniqueSuffix string
 @description('Tags to add to the resources')
 param tags object = {}
 
+@description('AI Services pricing tier')
+param aiServicesSku string = 'F0'
+
 @description('AI services name')
 param aiServiceName string = '${projectName}-ai-services-${environment}-${uniqueSuffix}'
 
@@ -159,7 +162,7 @@ resource aiServices 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   location: location
   tags: tags
   sku: {
-    name: 'S0'
+    name: aiServicesSku
   }
   kind: 'AIServices'
   properties: {

@@ -23,6 +23,9 @@
     "aiProjectDescription": {
       "value": "Development project for AI Model Router deployment and testing"
     },
+    "aiServicesSku": {
+      "value": "F0"
+    },
     "tags": {
       "value": {
         "Environment": "Development",

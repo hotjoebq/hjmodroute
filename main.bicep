@@ -18,6 +18,10 @@ param tags object = {
   Purpose: 'AI-Foundry-Infrastructure'
 }
 
+@description('AI Services pricing tier')
+@allowed(['F0', 'S0'])
+param aiServicesSku string = 'F0'
+
 @description('AI Hub display name')
 param aiHubDisplayName string = '${projectName}-ai-hub-${environment}'
 
@@ -41,6 +45,7 @@ module dependentResources 'modules/dependent-resources.bicep' = {
     projectName: projectName
     environment: environment
     uniqueSuffix: uniqueSuffix
+    aiServicesSku: aiServicesSku
     tags: tags
   }
 }

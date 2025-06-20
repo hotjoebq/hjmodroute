@@ -110,6 +110,7 @@ The deployment uses parameter files for different environments:
 | `projectName` | Base name for all resources | Required | 2-12 characters |
 | `location` | Azure region | Required | Any Azure region |
 | `environment` | Environment type | `dev` | `dev`, `test`, `prod` |
+| `aiServicesSku` | AI Services pricing tier | `F0` | `F0` (free), `S0` (standard) |
 
 ### Customizing Parameters
 
@@ -126,6 +127,9 @@ Edit the parameter files to customize your deployment:
     },
     "environment": {
       "value": "YOUR_ENVIRONMENT"
+    },
+    "aiServicesSku": {
+      "value": "F0"
     }
   }
 }
@@ -146,6 +150,13 @@ Model Router Endpoint URL: https://YOUR_PROJECT-model-router-YOUR_ENV.YOUR_REGIO
 Primary Key: YOUR_API_KEY...
 AI Hub Name: YOUR_PROJECT-ai-hub-YOUR_ENV-UNIQUE_ID
 ```
+
+### AI Services SKU Options
+
+- **F0 (Free Tier)**: No quota restrictions, limited usage (20 calls/minute, 1M characters/month)
+- **S0 (Standard Tier)**: Requires special quota approval, higher usage limits
+
+For development and testing, F0 tier is recommended as it doesn't require quota approval.
 
 ## 🔧 Using the Model Router
 
