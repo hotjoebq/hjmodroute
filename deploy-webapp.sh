@@ -51,6 +51,29 @@ if [ -z "$PROJECT_NAME" ]; then
   exit 1
 fi
 
+check_infrastructure_exists() {
+  echo "🔍 Checking if AI Foundry infrastructure already exists..."
+  
+  if ! az group show --name "$RESOURCE_GROUP" &> /dev/null; then
+    echo "❌ Resource group $RESOURCE_GROUP not found"
+    return 1
+  fi
+  
+  RESOURCE_GROUP_ID=$(az group show --name "$RESOURCE_GROUP" --query 'id' --output tsv)
+  
+  UNIQUE_STRING=$(echo -n "${RESOURCE_GROUP_ID}${PROJECT_NAME}" | sha256sum | cut -c1-6)
+  AI_HUB_NAME="${PROJECT_NAME}-ai-hub-${ENVIRONMENT}-${UNIQUE_STRING}"
+  
+  if az resource list --resource-group "$RESOURCE_GROUP" --query "[?contains(name, '${AI_HUB_NAME}')]" --output tsv | grep -q "${AI_HUB_NAME}"; then
+    echo "✅ AI Foundry infrastructure found (AI Hub: $AI_HUB_NAME)"
+    echo "   Using uniqueSuffix: $UNIQUE_STRING"
+    return 0
+  else
+    echo "❌ AI Foundry infrastructure not found. Please deploy infrastructure first using main.bicep"
+    return 1
+  fi
+}
+
 echo "🚀 Deploying Azure Model Router Web Application..."
 echo "   Resource Group: $RESOURCE_GROUP"
 echo "   Environment: $ENVIRONMENT"
@@ -58,36 +81,61 @@ echo "   Project Name: $PROJECT_NAME"
 echo "   Deploy Code: $DEPLOY_CODE"
 echo ""
 
-echo "📦 Deploying Azure infrastructure..."
-az deployment group create \
-  --resource-group "$RESOURCE_GROUP" \
-  --template-file main.bicep \
-  --parameters projectName="$PROJECT_NAME" environment="$ENVIRONMENT" \
-  --output table
+if check_infrastructure_exists; then
+  echo "📦 Deploying web application only (infrastructure exists)..."
+  TEMPLATE_FILE="web-app-only.bicep"
+  DEPLOYMENT_NAME="web-app-only-$(date +%Y%m%d-%H%M%S)"
+  
+  LOCATION=$(az group show --name "$RESOURCE_GROUP" --query 'location' --output tsv)
+  
+  TAGS='{
+    "Environment": "'$ENVIRONMENT'",
+    "Project": "'$PROJECT_NAME'",
+    "DeployedBy": "deploy-webapp-script",
+    "Purpose": "Web-Application-Only"
+  }'
+  
+  az deployment group create \
+    --resource-group "$RESOURCE_GROUP" \
+    --template-file "$TEMPLATE_FILE" \
+    --parameters projectName="$PROJECT_NAME" environment="$ENVIRONMENT" location="$LOCATION" uniqueSuffix="$UNIQUE_STRING" tags="$TAGS" \
+    --name "$DEPLOYMENT_NAME" \
+    --output table
+else
+  echo "📦 Deploying full Azure infrastructure..."
+  TEMPLATE_FILE="main.bicep"
+  DEPLOYMENT_NAME="main"
+  
+  az deployment group create \
+    --resource-group "$RESOURCE_GROUP" \
+    --template-file "$TEMPLATE_FILE" \
+    --parameters projectName="$PROJECT_NAME" environment="$ENVIRONMENT" \
+    --output table
+fi
 
 echo ""
 echo "📋 Getting deployment outputs..."
 BACKEND_URL=$(az deployment group show \
   --resource-group "$RESOURCE_GROUP" \
-  --name main \
+  --name "$DEPLOYMENT_NAME" \
   --query 'properties.outputs.backendUrl.value' \
   --output tsv)
 
 FRONTEND_URL=$(az deployment group show \
   --resource-group "$RESOURCE_GROUP" \
-  --name main \
+  --name "$DEPLOYMENT_NAME" \
   --query 'properties.outputs.frontendUrl.value' \
   --output tsv)
 
 BACKEND_APP_NAME=$(az deployment group show \
   --resource-group "$RESOURCE_GROUP" \
-  --name main \
+  --name "$DEPLOYMENT_NAME" \
   --query 'properties.outputs.backendAppServiceName.value' \
   --output tsv)
 
 FRONTEND_APP_NAME=$(az deployment group show \
   --resource-group "$RESOURCE_GROUP" \
-  --name main \
+  --name "$DEPLOYMENT_NAME" \
   --query 'properties.outputs.frontendStaticWebAppName.value' \
   --output tsv)
 

@@ -95,11 +95,18 @@ az deployment group create \
 - You need to demonstrate intelligent routing capabilities
 - You want real-time cost tracking and metrics
 
-### Quick Deployment:
+### ⚡ Intelligent Deployment:
+The deployment script automatically detects existing infrastructure and deploys accordingly:
+
 ```bash
-# Deploy with application code
+# Deploy with application code (auto-detects existing infrastructure)
 ./deploy-webapp.sh -g "YOUR_RESOURCE_GROUP" -p "YOUR_PROJECT_NAME" -e "dev" --deploy-code
 ```
+
+### 🔍 How It Works:
+- **Existing Infrastructure**: Script detects AI Foundry components and deploys only web application
+- **Fresh Deployment**: Script deploys complete infrastructure + web application
+- **Automatic Detection**: Uses AI Hub presence to determine deployment strategy
 
 ### What Gets Deployed:
 - 🌐 React frontend (Azure Static Web Apps)
