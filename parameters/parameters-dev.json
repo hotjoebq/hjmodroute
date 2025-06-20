@@ -23,15 +23,6 @@
     "aiProjectDescription": {
       "value": "Development project for AI Model Router deployment and testing"
     },
-    "modelRouterName": {
-      "value": "ai-model-router-dev"
-    },
-    "authMode": {
-      "value": "Key"
-    },
-    "publicNetworkAccess": {
-      "value": true
-    },
     "tags": {
       "value": {
         "Environment": "Development",

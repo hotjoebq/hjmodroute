@@ -23,15 +23,6 @@
     "aiProjectDescription": {
       "value": "Production project for AI Model Router deployment"
     },
-    "modelRouterName": {
-      "value": "ai-model-router-prod"
-    },
-    "authMode": {
-      "value": "Key"
-    },
-    "publicNetworkAccess": {
-      "value": true
-    },
     "tags": {
       "value": {
         "Environment": "Production",

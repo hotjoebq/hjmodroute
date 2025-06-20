@@ -110,8 +110,6 @@ The deployment uses parameter files for different environments:
 | `projectName` | Base name for all resources | Required | 2-12 characters |
 | `location` | Azure region | Required | Any Azure region |
 | `environment` | Environment type | `dev` | `dev`, `test`, `prod` |
-| `authMode` | Authentication mode | `Key` | `Key`, `AMLToken`, `AADToken` |
-| `publicNetworkAccess` | Enable public access | `true` | `true`, `false` |
 
 ### Customizing Parameters
 
