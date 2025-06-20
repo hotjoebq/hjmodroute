@@ -8,6 +8,9 @@ param tags object
 @description('App Service Plan SKU')
 param appServicePlanSku string = 'B1'
 
+@description('Skip resource creation if they already exist')
+param skipExistingResources bool = false
+
 // Import the web-app module
 module webApp 'modules/web-app.bicep' = {
   name: 'web-app-only-deployment'
@@ -18,6 +21,7 @@ module webApp 'modules/web-app.bicep' = {
     uniqueSuffix: uniqueSuffix
     tags: tags
     appServicePlanSku: appServicePlanSku
+    skipExistingResources: skipExistingResources
   }
 }
 
