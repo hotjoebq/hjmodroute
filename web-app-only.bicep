@@ -1,5 +1,5 @@
 @description('Deploy only Azure Model Router Web Application (for existing AI Foundry infrastructure)')
-param location string
+param location string = resourceGroup().location
 param projectName string
 param environment string
 param uniqueSuffix string
