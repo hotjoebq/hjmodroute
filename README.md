@@ -257,6 +257,31 @@ The Model Router automatically optimizes costs by:
 - **Key Management**: Secrets stored in Azure Key Vault
 - **RBAC**: Role-based access control for all resources
 
+## Application Code Deployment
+
+The repository includes a complete Azure Model Router web application that can be deployed to the infrastructure.
+
+### Automatic Deployment
+```bash
+# Deploy infrastructure and application code together
+./deploy-webapp.sh -g "your-resource-group" -p "your-project" -e "dev" --deploy-code
+```
+
+### Manual Application Code Update
+```bash
+# Get backend URL from deployment
+BACKEND_URL=$(az deployment group show --resource-group "your-rg" --name "web-app-only-..." --query 'properties.outputs.backendUrl.value' --output tsv)
+
+# Update and deploy application code
+./update-webapp-code.sh "$BACKEND_URL"
+./deploy-webapp.sh -g "your-resource-group" -p "your-project" -e "dev" --deploy-code
+```
+
+The application includes:
+- **Frontend**: React-based web interface with Azure Model Router integration
+- **Backend**: FastAPI application with intelligent model routing and cost optimization
+- **Features**: Complexity scoring, cost estimation, test prompts, and Azure credential configuration
+
 ## 📚 Additional Resources
 
 - [Azure AI Foundry Documentation](https://docs.microsoft.com/azure/ai-foundry/)
@@ -270,6 +295,7 @@ For issues with:
 - **Azure AI Foundry**: Contact Azure Support
 - **Bicep Templates**: Create an issue in this repository
 - **Deployment Scripts**: Check the troubleshooting section above
+- **Application Code Deployment**: If the frontend shows a placeholder page, ensure you used the `--deploy-code` flag
 
 ---
 

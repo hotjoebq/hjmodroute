@@ -171,7 +171,10 @@ echo "   Frontend App: $FRONTEND_URL"
 echo ""
 
 if [ "$DEPLOY_CODE" = true ]; then
-  echo "📱 Deploying application code..."
+  echo "📱 Updating and deploying application code..."
+  
+  echo "🔧 Updating application code with backend URL: $BACKEND_URL"
+  ./update-webapp-code.sh "$BACKEND_URL"
   
   if [ ! -f "webapp-code/backend.zip" ]; then
     echo "❌ Error: webapp-code/backend.zip not found"
