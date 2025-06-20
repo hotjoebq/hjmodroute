@@ -9,6 +9,8 @@ fi
 
 echo "🔧 Updating Model Router application code with backend URL: $BACKEND_URL"
 
+mkdir -p /home/ubuntu/hjmodroute/webapp-code
+
 echo "📦 Packaging backend code..."
 cd /home/ubuntu/azure-model-router-webapp/backend
 zip -r /home/ubuntu/hjmodroute/webapp-code/backend.zip . -x "*.pyc" "__pycache__/*" ".env"

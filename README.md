@@ -257,6 +257,46 @@ The Model Router automatically optimizes costs by:
 - **Key Management**: Secrets stored in Azure Key Vault
 - **RBAC**: Role-based access control for all resources
 
+## Azure AI Foundry Model Router Architecture
+
+### What is the Azure AI Foundry Model Router?
+
+The Azure AI Foundry Model Router in this repository serves as the **intelligent routing engine** for chat scenarios, providing:
+- **Cost-optimized model selection** based on query complexity analysis
+- **Native Azure intelligent routing** capabilities with built-in load balancing
+- **Fallback mechanisms** between different AI models for reliability
+- **Real-time cost optimization** features during preview period (no extra charges)
+
+### Repository Architecture Overview
+
+This repository provides a **4-phase deployment workflow**:
+
+**Phase 1: Infrastructure Deployment** (Automated via Bicep)
+- Deploys AI Hub, AI Project, AI Services, and web application infrastructure
+- Creates prerequisite resources for Model Router setup
+- **Note**: Does NOT deploy the Model Router itself
+
+**Phase 2: Manual Model Router Deployment** (Azure Portal)
+- Model Router is a **preview feature** requiring manual deployment
+- Must be configured through Azure AI Foundry portal after infrastructure creation
+- Generates endpoint URL pattern: `https://{project}-model-router-{env}.{region}.inference.ml.azure.com/score`
+
+**Phase 3: Web Application Deployment** (Automated)
+- Deploys React frontend and FastAPI backend as testing interface
+- Provides user-friendly UI for Model Router interaction and configuration
+
+**Phase 4: Configuration & Testing**
+- Configure Model Router endpoint and API key through web application
+- Test intelligent routing capabilities with various query complexities
+
+### Integration Approach
+
+The web application **integrates with** (not replaces) Azure AI Foundry Model Router:
+- Frontend accepts manual configuration of Model Router endpoint URL and API key
+- Backend makes direct API calls to the manually deployed Model Router endpoint  
+- Provides enhanced analytics layer with complexity scoring and cost estimation
+- Serves as a **bridge** between users and Azure's native Model Router functionality
+
 ## Application Code Deployment
 
 The repository includes a complete Azure Model Router web application that can be deployed to the infrastructure.
