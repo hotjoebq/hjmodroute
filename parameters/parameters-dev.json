@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "projectName": {
+      "value": "YOUR_PROJECT_NAME"
+    },
+    "location": {
+      "value": "YOUR_AZURE_REGION"
+    },
+    "environment": {
+      "value": "dev"
+    },
+    "aiHubDisplayName": {
+      "value": "AI Model Router Hub - Development"
+    },
+    "aiHubDescription": {
+      "value": "Development environment for AI Model Router with intelligent routing and cost optimization"
+    },
+    "aiProjectDisplayName": {
+      "value": "AI Model Router Project - Development"
+    },
+    "aiProjectDescription": {
+      "value": "Development project for AI Model Router deployment and testing"
+    },
+    "tags": {
+      "value": {
+        "Environment": "Development",
+        "Project": "AI-Model-Router",
+        "Owner": "DevTeam",
+        "CostCenter": "Engineering",
+        "Purpose": "AI-Foundry-Model-Router-Development"
+      }
+    }
+  }
+}
