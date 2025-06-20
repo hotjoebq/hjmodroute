@@ -19,8 +19,8 @@ param tags object = {
 }
 
 @description('AI Services pricing tier')
-@allowed(['F0', 'S0'])
-param aiServicesSku string = 'F0'
+@allowed(['S0'])
+param aiServicesSku string = 'S0'
 
 @description('AI Hub display name')
 param aiHubDisplayName string = '${projectName}-ai-hub-${environment}'
