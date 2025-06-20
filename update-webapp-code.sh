@@ -9,9 +9,9 @@ fi
 
 echo "🔧 Updating Model Router application code with backend URL: $BACKEND_URL"
 
-mkdir -p /home/ubuntu/hjmodroute/webapp-code
+ORIGINAL_DIR=$(pwd)
 
-BACKEND_DIR="/home/ubuntu/hjmodroute/backend"
+BACKEND_DIR="./backend"
 rm -rf "$BACKEND_DIR"
 mkdir -p "$BACKEND_DIR/app"
 
@@ -181,9 +181,9 @@ touch "$BACKEND_DIR/app/__init__.py"
 
 echo "📦 Packaging backend code..."
 cd "$BACKEND_DIR"
-zip -r /home/ubuntu/hjmodroute/webapp-code/backend.zip . -x "*.pyc" "__pycache__/*" ".env"
+zip -r "$ORIGINAL_DIR/webapp-code/backend.zip" . -x "*.pyc" "__pycache__/*" ".env"
 
-FRONTEND_DIR="/home/ubuntu/hjmodroute/frontend"
+FRONTEND_DIR="./frontend"
 rm -rf "$FRONTEND_DIR"
 mkdir -p "$FRONTEND_DIR/src"
 
@@ -560,6 +560,6 @@ npm run build
 
 echo "📦 Packaging frontend code..."
 cd dist
-zip -r /home/ubuntu/hjmodroute/webapp-code/frontend.zip .
+zip -r "$ORIGINAL_DIR/webapp-code/frontend.zip" .
 
 echo "✅ Updated webapp-code packages with backend URL: $BACKEND_URL"
