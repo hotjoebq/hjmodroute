@@ -24,7 +24,7 @@
       "value": "Production project for AI Model Router deployment"
     },
     "aiServicesSku": {
-      "value": "F0"
+      "value": "S0"
     },
     "tags": {
       "value": {
