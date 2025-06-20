@@ -261,6 +261,15 @@ The Model Router automatically optimizes costs by:
 
 The repository includes a complete Azure Model Router web application that can be deployed to the infrastructure.
 
+### Prerequisites
+```bash
+# Authenticate with Azure CLI
+az login
+
+# Verify authentication
+az account show
+```
+
 ### Automatic Deployment
 ```bash
 # Deploy infrastructure and application code together
@@ -282,6 +291,24 @@ The application includes:
 - **Backend**: FastAPI application with intelligent model routing and cost optimization
 - **Features**: Complexity scoring, cost estimation, test prompts, and Azure credential configuration
 
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### Authentication Errors
+```bash
+# Error: Azure CLI not authenticated
+az login
+
+# Error: Insufficient permissions
+az role assignment list --assignee $(az account show --query user.name --output tsv)
+```
+
+#### Application Code Deployment Issues
+- **Frontend shows placeholder page**: Ensure you used the `--deploy-code` flag and Azure CLI is authenticated
+- **Backend API not responding**: Check App Service deployment logs in Azure Portal
+- **Static Web App deployment failed**: Verify Azure CLI has Static Web Apps permissions
+
 ## 📚 Additional Resources
 
 - [Azure AI Foundry Documentation](https://docs.microsoft.com/azure/ai-foundry/)
@@ -295,7 +322,7 @@ For issues with:
 - **Azure AI Foundry**: Contact Azure Support
 - **Bicep Templates**: Create an issue in this repository
 - **Deployment Scripts**: Check the troubleshooting section above
-- **Application Code Deployment**: If the frontend shows a placeholder page, ensure you used the `--deploy-code` flag
+- **Application Code Deployment**: If the frontend shows a placeholder page, ensure you used the `--deploy-code` flag and Azure CLI is authenticated
 
 ---
 

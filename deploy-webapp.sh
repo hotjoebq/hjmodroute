@@ -3,6 +3,17 @@
 
 set -e
 
+check_azure_auth() {
+  if ! az account show &> /dev/null; then
+    echo "❌ Error: Azure CLI not authenticated"
+    echo "   Please run 'az login' to authenticate before deployment"
+    exit 1
+  fi
+  
+  ACCOUNT_NAME=$(az account show --query 'name' --output tsv)
+  echo "✅ Azure CLI authenticated (Account: $ACCOUNT_NAME)"
+}
+
 ENVIRONMENT="dev"
 RESOURCE_GROUP=""
 PROJECT_NAME=""
@@ -96,6 +107,9 @@ echo "   Resource Group: $RESOURCE_GROUP"
 echo "   Environment: $ENVIRONMENT"
 echo "   Project Name: $PROJECT_NAME"
 echo "   Deploy Code: $DEPLOY_CODE"
+echo ""
+
+check_azure_auth
 echo ""
 
 if check_infrastructure_exists; then
