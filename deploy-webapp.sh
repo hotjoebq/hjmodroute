@@ -59,17 +59,20 @@ check_infrastructure_exists() {
     return 1
   fi
   
-  RESOURCE_GROUP_ID=$(az group show --name "$RESOURCE_GROUP" --query 'id' --output tsv)
+  AI_HUB_PATTERN="${PROJECT_NAME}-ai-hub-${ENVIRONMENT}-"
   
-  UNIQUE_STRING=$(echo -n "${RESOURCE_GROUP_ID}${PROJECT_NAME}" | sha256sum | cut -c1-6)
-  AI_HUB_NAME="${PROJECT_NAME}-ai-hub-${ENVIRONMENT}-${UNIQUE_STRING}"
+  AI_HUB_RESOURCES=$(az resource list --resource-group "$RESOURCE_GROUP" --query "[?contains(name, '${AI_HUB_PATTERN}') && type=='Microsoft.MachineLearningServices/workspaces'].name" --output tsv 2>/dev/null || echo "")
   
-  if az resource list --resource-group "$RESOURCE_GROUP" --query "[?contains(name, '${AI_HUB_NAME}')]" --output tsv | grep -q "${AI_HUB_NAME}"; then
+  if [ -n "$AI_HUB_RESOURCES" ]; then
+    AI_HUB_NAME=$(echo "$AI_HUB_RESOURCES" | head -n1)
+    UNIQUE_STRING="${AI_HUB_NAME#${AI_HUB_PATTERN}}"
+    
     echo "✅ AI Foundry infrastructure found (AI Hub: $AI_HUB_NAME)"
     echo "   Using uniqueSuffix: $UNIQUE_STRING"
     return 0
   else
     echo "❌ AI Foundry infrastructure not found. Please deploy infrastructure first using main.bicep"
+    echo "   Searched for AI Hub pattern: ${AI_HUB_PATTERN}*"
     return 1
   fi
 }
