@@ -576,12 +576,12 @@ EOF
 echo "✅ Created frontend application code"
 
 cd "$FRONTEND_DIR"
-npm install
+npm.cmd install
 
 sed "s|__BACKEND_URL__|$BACKEND_URL|g" .env.production > .env.local
 
 echo "🎨 Building frontend with production API URL: $BACKEND_URL"
-npm run build
+npm.cmd run build
 
 echo "📦 Packaging frontend code..."
 cd dist
