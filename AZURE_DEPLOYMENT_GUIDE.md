@@ -69,6 +69,25 @@ az webapp deploy \
   --type zip
 ```
 
+#### Alternative Deployment Methods
+
+If the primary deployment fails with DNS resolution errors, the script automatically attempts:
+
+1. **Run from Package**: Uploads ZIP to Azure Blob Storage and configures `WEBSITE_RUN_FROM_PACKAGE`
+2. **FTP Deployment**: Provides FTP credentials for manual file upload
+
+##### Manual Run from Package Setup
+```bash
+# Upload your ZIP to blob storage and get the URL
+PACKAGE_URL="https://yourstorageaccount.blob.core.windows.net/packages/backend.zip"
+
+# Configure App Service
+az webapp config appsettings set \
+  --resource-group "YOUR_RESOURCE_GROUP" \
+  --name "$BACKEND_APP_NAME" \
+  --settings WEBSITE_RUN_FROM_PACKAGE="$PACKAGE_URL"
+```
+
 #### Frontend Deployment
 ```bash
 # Deploy the frontend code
