@@ -62,10 +62,11 @@ echo "Frontend URL: $FRONTEND_URL"
 #### Backend Deployment
 ```bash
 # Deploy the backend code
-az webapp deployment source config-zip \
+az webapp deploy \
   --resource-group "YOUR_RESOURCE_GROUP" \
   --name "$BACKEND_APP_NAME" \
-  --src webapp-code/backend.zip
+  --src-path webapp-code/backend.zip \
+  --type zip
 ```
 
 #### Frontend Deployment
