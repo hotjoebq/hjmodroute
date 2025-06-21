@@ -14,6 +14,28 @@ check_azure_auth() {
   echo "✅ Azure CLI authenticated (Account: $ACCOUNT_NAME)"
 }
 
+validate_app_service() {
+  local app_name="$1"
+  local resource_group="$2"
+  
+  echo "🔍 Validating Azure App Service connectivity..."
+  
+  if ! az webapp show --name "$app_name" --resource-group "$resource_group" &> /dev/null; then
+    echo "❌ Error: Azure App Service '$app_name' not found in resource group '$resource_group'"
+    echo "   Please ensure the infrastructure deployment completed successfully"
+    return 1
+  fi
+  
+  local app_state=$(az webapp show --name "$app_name" --resource-group "$resource_group" --query 'state' --output tsv)
+  if [ "$app_state" != "Running" ]; then
+    echo "⚠️  Warning: Azure App Service '$app_name' is in state: $app_state"
+    echo "   Deployment may fail if the service is not running"
+  fi
+  
+  echo "✅ Azure App Service '$app_name' is accessible"
+  return 0
+}
+
 ENVIRONMENT="dev"
 RESOURCE_GROUP=""
 PROJECT_NAME=""
@@ -201,10 +223,26 @@ if [ "$DEPLOY_CODE" = true ]; then
   fi
   
   echo "🔧 Deploying backend code..."
-  az webapp deployment source config-zip \
+  
+  if ! validate_app_service "$BACKEND_APP_NAME" "$RESOURCE_GROUP"; then
+    echo "❌ Backend deployment aborted due to App Service validation failure"
+    exit 1
+  fi
+  
+  if ! az webapp deploy \
     --resource-group "$RESOURCE_GROUP" \
     --name "$BACKEND_APP_NAME" \
-    --src webapp-code/backend.zip
+    --src-path webapp-code/backend.zip \
+    --type zip \
+    --timeout 600; then
+    
+    echo "❌ Backend deployment failed. Troubleshooting steps:"
+    echo "   1. Check network connectivity and VPN settings"
+    echo "   2. Verify Azure CLI authentication: az account show"
+    echo "   3. Check App Service status in Azure Portal"
+    echo "   4. Try deploying manually: az webapp deploy --resource-group $RESOURCE_GROUP --name $BACKEND_APP_NAME --src-path webapp-code/backend.zip --type zip"
+    exit 1
+  fi
   
   echo "🎨 Deploying frontend code..."
   az staticwebapp environment set \
@@ -225,7 +263,7 @@ if [ "$DEPLOY_CODE" = true ]; then
   echo "3. Test the application with various prompts"
 else
   echo "📝 Next Steps:"
-  echo "1. Deploy backend code: az webapp deployment source config-zip --resource-group $RESOURCE_GROUP --name $BACKEND_APP_NAME --src webapp-code/backend.zip"
+  echo "1. Deploy backend code: az webapp deploy --resource-group $RESOURCE_GROUP --name $BACKEND_APP_NAME --src-path webapp-code/backend.zip --type zip"
   echo "2. Deploy frontend code: az staticwebapp environment set --name $FRONTEND_APP_NAME --environment-name default --source webapp-code/frontend.zip"
   echo "3. Configure Azure Model Router credentials in the app"
 fi
