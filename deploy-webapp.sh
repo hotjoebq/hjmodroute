@@ -15,9 +15,32 @@ check_azure_auth() {
 }
 
 check_dependencies() {
+  local missing_deps=false
+  
   if ! command -v jq &> /dev/null; then
     echo "⚠️  Warning: jq not found. FTP deployment fallback may not work."
     echo "   Install jq: sudo apt-get install jq (Ubuntu/Debian) or brew install jq (macOS)"
+    echo "   Windows: Download from https://stedolan.github.io/jq/download/"
+    missing_deps=true
+  fi
+  
+  if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ -n "$WINDIR" ]]; then
+    echo "🪟 Windows environment detected"
+    echo "   Recommendation: Use Git Bash, PowerShell, or WSL for best compatibility"
+    echo "   If you see 'command not found' errors, try running in PowerShell"
+  fi
+  
+  local az_version=$(az --version 2>/dev/null | head -n1 | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+  if [ "$az_version" != "unknown" ]; then
+    echo "✅ Azure CLI version: $az_version"
+  else
+    echo "⚠️  Warning: Could not determine Azure CLI version"
+    echo "   Ensure Azure CLI is properly installed and in PATH"
+  fi
+  
+  if [ "$missing_deps" = true ]; then
+    echo ""
+    echo "💡 Some dependencies are missing but deployment can continue with reduced functionality"
   fi
 }
 
@@ -50,17 +73,60 @@ deploy_run_from_package() {
   
   echo "📦 Attempting Run from Package deployment..."
   
-  local storage_account_name="${app_name}pkg$(date +%s | tail -c 6)"
-  local container_name="packages"
+  local base_name=$(echo "$app_name" | cut -c1-15)  # Limit to 15 chars for safety
+  local timestamp=$(date +%s)
+  local short_timestamp=$(echo $timestamp | tail -c 6)
   
-  echo "🔧 Creating temporary storage account: $storage_account_name"
-  if ! az storage account create \
-    --name "$storage_account_name" \
-    --resource-group "$resource_group" \
-    --location "$(az group show --name $resource_group --query location --output tsv)" \
-    --sku Standard_LRS \
-    --kind StorageV2 &> /dev/null; then
-    echo "❌ Failed to create storage account"
+  local storage_account_names=(
+    "${base_name}pkg${short_timestamp}"
+    "hjmrpkg${short_timestamp}"
+    "modelpkg${short_timestamp}"
+    "azpkg${timestamp}"
+  )
+  
+  local container_name="packages"
+  local storage_account_name=""
+  local storage_created=false
+  
+  local location=$(az group show --name "$resource_group" --query location --output tsv 2>/dev/null || echo "eastus")
+  
+  echo "🔧 Attempting to create temporary storage account..."
+  for name in "${storage_account_names[@]}"; do
+    name=$(echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g' | cut -c1-24)
+    
+    echo "   Trying storage account name: $name"
+    if az storage account create \
+      --name "$name" \
+      --resource-group "$resource_group" \
+      --location "$location" \
+      --sku Standard_LRS \
+      --kind StorageV2 \
+      --allow-blob-public-access true &> /dev/null; then
+      
+      storage_account_name="$name"
+      storage_created=true
+      echo "✅ Created storage account: $storage_account_name"
+      break
+    else
+      echo "   ❌ Failed to create storage account: $name"
+    fi
+  done
+  
+  if [ "$storage_created" = false ]; then
+    echo "❌ Failed to create storage account with all attempted names"
+    echo "   This may be due to:"
+    echo "   1. Storage account name conflicts (names must be globally unique)"
+    echo "   2. Insufficient permissions to create storage accounts"
+    echo "   3. Azure subscription limits or quotas"
+    echo "   4. Network connectivity issues"
+    echo ""
+    echo "🔧 Alternative: Use existing storage account"
+    echo "   1. Create a storage account manually in Azure Portal"
+    echo "   2. Upload your ZIP file to a blob container"
+    echo "   3. Set WEBSITE_RUN_FROM_PACKAGE to the blob URL"
+    echo "   4. Example commands:"
+    echo "      az storage blob upload --file $package_path --name backend.zip --container-name packages --account-name YOUR_STORAGE"
+    echo "      az webapp config appsettings set --resource-group $resource_group --name $app_name --settings WEBSITE_RUN_FROM_PACKAGE='https://YOUR_STORAGE.blob.core.windows.net/packages/backend.zip'"
     return 1
   fi
   
@@ -151,7 +217,91 @@ deploy_via_ftp() {
   echo "   3. Username: $ftp_username"
   echo "   4. Password: [hidden - check Azure Portal for FTP credentials]"
   echo "   5. Upload all files from temp_deploy/ to /site/wwwroot/"
+  echo ""
+  echo "🔧 FTP Client Options:"
+  echo "   - Windows: Use WinSCP, FileZilla, or built-in FTP"
+  echo "   - macOS/Linux: Use FileZilla, Cyberduck, or command line ftp"
+  echo "   - Command line: ftp $ftp_url (then use username/password)"
+  echo ""
+  echo "📋 Alternative: Use Azure Portal"
+  echo "   1. Go to Azure Portal → App Services → $app_name"
+  echo "   2. Click 'Advanced Tools' → 'Go' (opens Kudu)"
+  echo "   3. Click 'Debug console' → 'CMD' or 'PowerShell'"
+  echo "   4. Navigate to /site/wwwroot and drag/drop files"
   
+  return 1
+}
+
+deploy_via_existing_storage() {
+  local resource_group="$1"
+  local app_name="$2"
+  local package_path="$3"
+  
+  echo "🔍 Attempting deployment using existing storage accounts..."
+  
+  local existing_storage=$(az storage account list \
+    --resource-group "$resource_group" \
+    --query '[0].name' \
+    --output tsv 2>/dev/null)
+  
+  if [ -n "$existing_storage" ] && [ "$existing_storage" != "null" ]; then
+    echo "✅ Found existing storage account: $existing_storage"
+    
+    local storage_key=$(az storage account keys list \
+      --account-name "$existing_storage" \
+      --resource-group "$resource_group" \
+      --query '[0].value' \
+      --output tsv 2>/dev/null)
+    
+    if [ -n "$storage_key" ]; then
+      local container_name="packages"
+      local blob_name="backend-$(date +%Y%m%d-%H%M%S).zip"
+      
+      az storage container create \
+        --name "$container_name" \
+        --account-name "$existing_storage" \
+        --account-key "$storage_key" \
+        --public-access blob &> /dev/null
+      
+      echo "📤 Uploading package to existing storage account..."
+      if az storage blob upload \
+        --file "$package_path" \
+        --name "$blob_name" \
+        --container-name "$container_name" \
+        --account-name "$existing_storage" \
+        --account-key "$storage_key" &> /dev/null; then
+        
+        local package_url=$(az storage blob url \
+          --name "$blob_name" \
+          --container-name "$container_name" \
+          --account-name "$existing_storage" \
+          --account-key "$storage_key" \
+          --output tsv)
+        
+        echo "📦 Package uploaded to: $package_url"
+        
+        echo "⚙️  Configuring App Service to run from package..."
+        if az webapp config appsettings set \
+          --resource-group "$resource_group" \
+          --name "$app_name" \
+          --settings WEBSITE_RUN_FROM_PACKAGE="$package_url" &> /dev/null; then
+          
+          echo "🔄 Restarting App Service..."
+          if az webapp restart \
+            --resource-group "$resource_group" \
+            --name "$app_name" &> /dev/null; then
+            
+            echo "✅ Run from Package deployment using existing storage completed successfully!"
+            echo "   Package URL: $package_url"
+            echo "   Storage Account: $existing_storage"
+            return 0
+          fi
+        fi
+      fi
+    fi
+  fi
+  
+  echo "❌ No suitable existing storage account found or deployment failed"
   return 1
 }
 
@@ -365,12 +515,19 @@ if [ "$DEPLOY_CODE" = true ]; then
     else
       echo "❌ Run from Package deployment also failed."
       echo ""
-      echo "🔧 Attempting alternative deployment method 2: FTP..."
+      echo "🔧 Attempting alternative deployment method 2: Existing Storage..."
       
-      if deploy_via_ftp "$RESOURCE_GROUP" "$BACKEND_APP_NAME" "webapp-code/backend.zip"; then
-        echo "✅ FTP deployment succeeded!"
+      if deploy_via_existing_storage "$RESOURCE_GROUP" "$BACKEND_APP_NAME" "webapp-code/backend.zip"; then
+        echo "✅ Existing storage deployment succeeded!"
       else
-        echo "❌ All automated deployment methods failed."
+        echo "❌ Existing storage deployment also failed."
+        echo ""
+        echo "🔧 Attempting alternative deployment method 3: FTP..."
+        
+        if deploy_via_ftp "$RESOURCE_GROUP" "$BACKEND_APP_NAME" "webapp-code/backend.zip"; then
+          echo "✅ FTP deployment succeeded!"
+        else
+          echo "❌ All automated deployment methods failed."
         echo ""
         echo "🔍 Network Connectivity Troubleshooting:"
         echo "   This appears to be a persistent DNS resolution issue preventing connection to Azure endpoints."
@@ -390,6 +547,13 @@ if [ "$DEPLOY_CODE" = true ]; then
         echo "   4. Check corporate firewall blocking *.scm.azurewebsites.net"
         echo "   5. Verify Azure CLI version: az --version"
         echo ""
+        echo "🔧 Storage Account Troubleshooting:"
+        echo "   1. Check Azure subscription quotas: az account show"
+        echo "   2. Verify permissions: az role assignment list --assignee \$(az account show --query user.name -o tsv)"
+        echo "   3. Try different Azure region: az account list-locations --query '[].name'"
+        echo "   4. Check storage account naming conflicts (names must be globally unique)"
+        echo "   5. Verify resource group exists: az group show --name $RESOURCE_GROUP"
+        echo ""
         echo "📁 Backend zip file ready at: $(pwd)/webapp-code/backend.zip"
         echo "   You can upload this file manually through Azure Portal"
         echo ""
@@ -400,16 +564,60 @@ if [ "$DEPLOY_CODE" = true ]; then
   fi
   
   echo "🎨 Deploying frontend code..."
+  
+  local frontend_deployed=false
+  
+  echo "   Attempting method 1: az staticwebapp environment set"
   if az staticwebapp environment set \
     --name "$FRONTEND_APP_NAME" \
     --environment-name default \
-    --source webapp-code/frontend.zip; then
+    --source webapp-code/frontend.zip 2>/dev/null; then
     
     echo "✅ Frontend deployment completed successfully!"
+    frontend_deployed=true
   else
-    echo "❌ Frontend deployment failed"
+    echo "   ❌ Method 1 failed"
+    
+    echo "   Attempting method 2: az staticwebapp environment set with resource group"
+    if az staticwebapp environment set \
+      --name "$FRONTEND_APP_NAME" \
+      --environment-name default \
+      --source webapp-code/frontend.zip \
+      --resource-group "$RESOURCE_GROUP" 2>/dev/null; then
+      
+      echo "✅ Frontend deployment completed successfully!"
+      frontend_deployed=true
+    else
+      echo "   ❌ Method 2 failed"
+      
+      echo "   Attempting method 3: az staticwebapp deployment create"
+      if az staticwebapp deployment create \
+        --name "$FRONTEND_APP_NAME" \
+        --resource-group "$RESOURCE_GROUP" \
+        --source webapp-code/frontend.zip 2>/dev/null; then
+        
+        echo "✅ Frontend deployment completed successfully!"
+        frontend_deployed=true
+      else
+        echo "   ❌ Method 3 failed"
+      fi
+    fi
+  fi
+  
+  if [ "$frontend_deployed" = false ]; then
+    echo "❌ All frontend deployment methods failed"
     echo "📁 Frontend zip file ready at: $(pwd)/webapp-code/frontend.zip"
-    echo "   You can upload this file manually through Azure Portal"
+    echo ""
+    echo "🔧 Manual Frontend Deployment Options:"
+    echo "   1. Azure Portal: Go to Static Web Apps → $FRONTEND_APP_NAME → Overview → 'Browse' → Upload"
+    echo "   2. Azure Portal: Go to Static Web Apps → $FRONTEND_APP_NAME → Deployment → Upload zip"
+    echo "   3. GitHub Actions: Connect your repository for automated deployment"
+    echo "   4. Azure CLI (manual): az staticwebapp environment set --name $FRONTEND_APP_NAME --environment-name default --source webapp-code/frontend.zip"
+    echo ""
+    echo "💡 Common issues:"
+    echo "   - Windows: 'set' command not recognized → Use PowerShell or Git Bash"
+    echo "   - Permissions: Ensure you have Static Web Apps Contributor role"
+    echo "   - File size: Ensure frontend.zip is under 100MB"
     FRONTEND_DEPLOYMENT_FAILED=true
   fi
   
