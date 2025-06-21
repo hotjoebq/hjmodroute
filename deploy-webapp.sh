@@ -236,22 +236,78 @@ if [ "$DEPLOY_CODE" = true ]; then
     --type zip \
     --timeout 600; then
     
-    echo "❌ Backend deployment failed. Troubleshooting steps:"
-    echo "   1. Check network connectivity and VPN settings"
-    echo "   2. Verify Azure CLI authentication: az account show"
-    echo "   3. Check App Service status in Azure Portal"
-    echo "   4. Try deploying manually: az webapp deploy --resource-group $RESOURCE_GROUP --name $BACKEND_APP_NAME --src-path webapp-code/backend.zip --type zip"
-    exit 1
+    echo "❌ Backend deployment failed with connectivity error."
+    echo ""
+    echo "🔧 Attempting alternative deployment method (FTP)..."
+    
+    if az webapp deployment source config-local-git \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$BACKEND_APP_NAME" &> /dev/null; then
+      
+      echo "✅ Alternative deployment method configured successfully"
+      echo "   You can now deploy using Git or FTP methods"
+    else
+      echo "⚠️  Alternative deployment also failed"
+    fi
+    
+    echo ""
+    echo "🔍 Network Connectivity Troubleshooting:"
+    echo "   This appears to be a DNS resolution issue preventing connection to Azure SCM endpoints."
+    echo "   The error 'getaddrinfo failed' indicates network connectivity problems."
+    echo ""
+    echo "📋 Manual Deployment Options:"
+    echo "   1. Azure Portal: Go to App Service → Deployment Center → Upload zip file"
+    echo "   2. VS Code: Use Azure App Service extension to deploy"
+    echo "   3. PowerShell: Use Publish-AzWebApp cmdlet"
+    echo "   4. FTP: Use FTP credentials from Azure Portal"
+    echo ""
+    echo "🔧 Network Troubleshooting Steps:"
+    echo "   1. Check VPN/proxy settings that might block Azure endpoints"
+    echo "   2. Test DNS resolution: nslookup $BACKEND_APP_NAME.scm.azurewebsites.net"
+    echo "   3. Try from different network (mobile hotspot, etc.)"
+    echo "   4. Check corporate firewall blocking *.scm.azurewebsites.net"
+    echo "   5. Verify Azure CLI version: az --version"
+    echo ""
+    echo "📁 Backend zip file ready at: $(pwd)/webapp-code/backend.zip"
+    echo "   You can upload this file manually through Azure Portal"
+    echo ""
+    
+    BACKEND_DEPLOYMENT_FAILED=true
   fi
   
   echo "🎨 Deploying frontend code..."
-  az staticwebapp environment set \
+  if az staticwebapp environment set \
     --name "$FRONTEND_APP_NAME" \
     --environment-name default \
-    --source webapp-code/frontend.zip
+    --source webapp-code/frontend.zip; then
+    
+    echo "✅ Frontend deployment completed successfully!"
+  else
+    echo "❌ Frontend deployment failed"
+    echo "📁 Frontend zip file ready at: $(pwd)/webapp-code/frontend.zip"
+    echo "   You can upload this file manually through Azure Portal"
+    FRONTEND_DEPLOYMENT_FAILED=true
+  fi
   
   echo ""
-  echo "🎉 Full deployment completed successfully!"
+  if [ "$BACKEND_DEPLOYMENT_FAILED" = true ] || [ "$FRONTEND_DEPLOYMENT_FAILED" = true ]; then
+    echo "⚠️  Deployment completed with issues - manual steps required"
+    echo ""
+    if [ "$BACKEND_DEPLOYMENT_FAILED" = true ]; then
+      echo "🔧 Backend Manual Deployment:"
+      echo "   1. Go to Azure Portal → App Services → $BACKEND_APP_NAME"
+      echo "   2. Click 'Deployment Center' → 'FTPS credentials' or 'Local Git'"
+      echo "   3. Upload webapp-code/backend.zip or use Git deployment"
+    fi
+    if [ "$FRONTEND_DEPLOYMENT_FAILED" = true ]; then
+      echo "🔧 Frontend Manual Deployment:"
+      echo "   1. Go to Azure Portal → Static Web Apps → $FRONTEND_APP_NAME"
+      echo "   2. Click 'Overview' → 'Manage deployment token'"
+      echo "   3. Upload webapp-code/frontend.zip manually"
+    fi
+  else
+    echo "🎉 Full deployment completed successfully!"
+  fi
   echo ""
   echo "🌐 Your Azure Model Router Web App is ready:"
   echo "   Frontend: $FRONTEND_URL"
@@ -263,7 +319,14 @@ if [ "$DEPLOY_CODE" = true ]; then
   echo "3. Test the application with various prompts"
 else
   echo "📝 Next Steps:"
-  echo "1. Deploy backend code: az webapp deploy --resource-group $RESOURCE_GROUP --name $BACKEND_APP_NAME --src-path webapp-code/backend.zip --type zip"
-  echo "2. Deploy frontend code: az staticwebapp environment set --name $FRONTEND_APP_NAME --environment-name default --source webapp-code/frontend.zip"
+  echo "1. Deploy backend code:"
+  echo "   Primary: az webapp deploy --resource-group $RESOURCE_GROUP --name $BACKEND_APP_NAME --src-path webapp-code/backend.zip --type zip"
+  echo "   Alternative: Upload webapp-code/backend.zip via Azure Portal if connectivity issues occur"
+  echo "2. Deploy frontend code:"
+  echo "   Primary: az staticwebapp environment set --name $FRONTEND_APP_NAME --environment-name default --source webapp-code/frontend.zip"
+  echo "   Alternative: Upload webapp-code/frontend.zip via Azure Portal"
   echo "3. Configure Azure Model Router credentials in the app"
+  echo ""
+  echo "💡 If you encounter DNS resolution errors (getaddrinfo failed):"
+  echo "   This indicates network connectivity issues. Use Azure Portal for manual deployment."
 fi
