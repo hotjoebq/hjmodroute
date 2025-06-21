@@ -14,6 +14,13 @@ check_azure_auth() {
   echo "✅ Azure CLI authenticated (Account: $ACCOUNT_NAME)"
 }
 
+check_dependencies() {
+  if ! command -v jq &> /dev/null; then
+    echo "⚠️  Warning: jq not found. FTP deployment fallback may not work."
+    echo "   Install jq: sudo apt-get install jq (Ubuntu/Debian) or brew install jq (macOS)"
+  fi
+}
+
 validate_app_service() {
   local app_name="$1"
   local resource_group="$2"
@@ -34,6 +41,118 @@ validate_app_service() {
   
   echo "✅ Azure App Service '$app_name' is accessible"
   return 0
+}
+
+deploy_run_from_package() {
+  local resource_group="$1"
+  local app_name="$2"
+  local package_path="$3"
+  
+  echo "📦 Attempting Run from Package deployment..."
+  
+  local storage_account_name="${app_name}pkg$(date +%s | tail -c 6)"
+  local container_name="packages"
+  
+  echo "🔧 Creating temporary storage account: $storage_account_name"
+  if ! az storage account create \
+    --name "$storage_account_name" \
+    --resource-group "$resource_group" \
+    --location "$(az group show --name $resource_group --query location --output tsv)" \
+    --sku Standard_LRS \
+    --kind StorageV2 &> /dev/null; then
+    echo "❌ Failed to create storage account"
+    return 1
+  fi
+  
+  local storage_key=$(az storage account keys list \
+    --account-name "$storage_account_name" \
+    --resource-group "$resource_group" \
+    --query '[0].value' \
+    --output tsv)
+  
+  if ! az storage container create \
+    --name "$container_name" \
+    --account-name "$storage_account_name" \
+    --account-key "$storage_key" \
+    --public-access blob &> /dev/null; then
+    echo "❌ Failed to create storage container"
+    return 1
+  fi
+  
+  local blob_name="backend-$(date +%Y%m%d-%H%M%S).zip"
+  echo "📤 Uploading package to blob storage..."
+  if ! az storage blob upload \
+    --file "$package_path" \
+    --name "$blob_name" \
+    --container-name "$container_name" \
+    --account-name "$storage_account_name" \
+    --account-key "$storage_key" &> /dev/null; then
+    echo "❌ Failed to upload package to blob storage"
+    return 1
+  fi
+  
+  local package_url=$(az storage blob url \
+    --name "$blob_name" \
+    --container-name "$container_name" \
+    --account-name "$storage_account_name" \
+    --account-key "$storage_key" \
+    --output tsv)
+  
+  echo "📦 Package uploaded to: $package_url"
+  
+  echo "⚙️  Configuring App Service to run from package..."
+  if ! az webapp config appsettings set \
+    --resource-group "$resource_group" \
+    --name "$app_name" \
+    --settings WEBSITE_RUN_FROM_PACKAGE="$package_url" &> /dev/null; then
+    echo "❌ Failed to configure run from package setting"
+    return 1
+  fi
+  
+  echo "🔄 Restarting App Service..."
+  if ! az webapp restart \
+    --resource-group "$resource_group" \
+    --name "$app_name" &> /dev/null; then
+    echo "❌ Failed to restart App Service"
+    return 1
+  fi
+  
+  echo "✅ Run from Package deployment completed successfully!"
+  echo "   Package URL: $package_url"
+  echo "   Storage Account: $storage_account_name (can be deleted after deployment)"
+  return 0
+}
+
+deploy_via_ftp() {
+  local resource_group="$1"
+  local app_name="$2"
+  local package_path="$3"
+  
+  echo "📡 Attempting FTP deployment..."
+  
+  local ftp_info=$(az webapp deployment list-publishing-profiles \
+    --resource-group "$resource_group" \
+    --name "$app_name" \
+    --query "[?publishMethod=='FTP']" \
+    --output json 2>/dev/null)
+  
+  if [ -z "$ftp_info" ] || [ "$ftp_info" = "[]" ]; then
+    echo "❌ Unable to retrieve FTP credentials"
+    return 1
+  fi
+  
+  local ftp_url=$(echo "$ftp_info" | jq -r '.[0].publishUrl')
+  local ftp_username=$(echo "$ftp_info" | jq -r '.[0].userName')
+  local ftp_password=$(echo "$ftp_info" | jq -r '.[0].userPWD')
+  
+  echo "🔧 FTP deployment requires manual steps:"
+  echo "   1. Extract the ZIP file: unzip $package_path -d temp_deploy/"
+  echo "   2. Use FTP client to upload files to: $ftp_url"
+  echo "   3. Username: $ftp_username"
+  echo "   4. Password: [hidden - check Azure Portal for FTP credentials]"
+  echo "   5. Upload all files from temp_deploy/ to /site/wwwroot/"
+  
+  return 1
 }
 
 ENVIRONMENT="dev"
@@ -132,6 +251,7 @@ echo "   Deploy Code: $DEPLOY_CODE"
 echo ""
 
 check_azure_auth
+check_dependencies
 echo ""
 
 if check_infrastructure_exists; then
@@ -236,22 +356,82 @@ if [ "$DEPLOY_CODE" = true ]; then
     --type zip \
     --timeout 600; then
     
-    echo "❌ Backend deployment failed. Troubleshooting steps:"
-    echo "   1. Check network connectivity and VPN settings"
-    echo "   2. Verify Azure CLI authentication: az account show"
-    echo "   3. Check App Service status in Azure Portal"
-    echo "   4. Try deploying manually: az webapp deploy --resource-group $RESOURCE_GROUP --name $BACKEND_APP_NAME --src-path webapp-code/backend.zip --type zip"
-    exit 1
+    echo "❌ Primary deployment method failed with connectivity error."
+    echo ""
+    echo "🔧 Attempting alternative deployment method 1: Run from Package..."
+    
+    if deploy_run_from_package "$RESOURCE_GROUP" "$BACKEND_APP_NAME" "webapp-code/backend.zip"; then
+      echo "✅ Run from Package deployment succeeded!"
+    else
+      echo "❌ Run from Package deployment also failed."
+      echo ""
+      echo "🔧 Attempting alternative deployment method 2: FTP..."
+      
+      if deploy_via_ftp "$RESOURCE_GROUP" "$BACKEND_APP_NAME" "webapp-code/backend.zip"; then
+        echo "✅ FTP deployment succeeded!"
+      else
+        echo "❌ All automated deployment methods failed."
+        echo ""
+        echo "🔍 Network Connectivity Troubleshooting:"
+        echo "   This appears to be a persistent DNS resolution issue preventing connection to Azure endpoints."
+        echo "   The error 'getaddrinfo failed' indicates network connectivity problems."
+        echo ""
+        echo "📋 Manual Deployment Options:"
+        echo "   1. Azure Portal: Go to App Service → Deployment Center → Upload zip file"
+        echo "   2. VS Code: Use Azure App Service extension to deploy"
+        echo "   3. PowerShell: Use Publish-AzWebApp cmdlet"
+        echo "   4. FTP: Use FTP credentials from Azure Portal (see above)"
+        echo "   5. Run from Package: Upload ZIP to your own blob storage and set WEBSITE_RUN_FROM_PACKAGE"
+        echo ""
+        echo "🔧 Network Troubleshooting Steps:"
+        echo "   1. Check VPN/proxy settings that might block Azure endpoints"
+        echo "   2. Test DNS resolution: nslookup $BACKEND_APP_NAME.scm.azurewebsites.net"
+        echo "   3. Try from different network (mobile hotspot, etc.)"
+        echo "   4. Check corporate firewall blocking *.scm.azurewebsites.net"
+        echo "   5. Verify Azure CLI version: az --version"
+        echo ""
+        echo "📁 Backend zip file ready at: $(pwd)/webapp-code/backend.zip"
+        echo "   You can upload this file manually through Azure Portal"
+        echo ""
+        
+        BACKEND_DEPLOYMENT_FAILED=true
+      fi
+    fi
   fi
   
   echo "🎨 Deploying frontend code..."
-  az staticwebapp environment set \
+  if az staticwebapp environment set \
     --name "$FRONTEND_APP_NAME" \
     --environment-name default \
-    --source webapp-code/frontend.zip
+    --source webapp-code/frontend.zip; then
+    
+    echo "✅ Frontend deployment completed successfully!"
+  else
+    echo "❌ Frontend deployment failed"
+    echo "📁 Frontend zip file ready at: $(pwd)/webapp-code/frontend.zip"
+    echo "   You can upload this file manually through Azure Portal"
+    FRONTEND_DEPLOYMENT_FAILED=true
+  fi
   
   echo ""
-  echo "🎉 Full deployment completed successfully!"
+  if [ "$BACKEND_DEPLOYMENT_FAILED" = true ] || [ "$FRONTEND_DEPLOYMENT_FAILED" = true ]; then
+    echo "⚠️  Deployment completed with issues - manual steps required"
+    echo ""
+    if [ "$BACKEND_DEPLOYMENT_FAILED" = true ]; then
+      echo "🔧 Backend Manual Deployment:"
+      echo "   1. Go to Azure Portal → App Services → $BACKEND_APP_NAME"
+      echo "   2. Click 'Deployment Center' → 'FTPS credentials' or 'Local Git'"
+      echo "   3. Upload webapp-code/backend.zip or use Git deployment"
+    fi
+    if [ "$FRONTEND_DEPLOYMENT_FAILED" = true ]; then
+      echo "🔧 Frontend Manual Deployment:"
+      echo "   1. Go to Azure Portal → Static Web Apps → $FRONTEND_APP_NAME"
+      echo "   2. Click 'Overview' → 'Manage deployment token'"
+      echo "   3. Upload webapp-code/frontend.zip manually"
+    fi
+  else
+    echo "🎉 Full deployment completed successfully!"
+  fi
   echo ""
   echo "🌐 Your Azure Model Router Web App is ready:"
   echo "   Frontend: $FRONTEND_URL"
@@ -263,7 +443,14 @@ if [ "$DEPLOY_CODE" = true ]; then
   echo "3. Test the application with various prompts"
 else
   echo "📝 Next Steps:"
-  echo "1. Deploy backend code: az webapp deploy --resource-group $RESOURCE_GROUP --name $BACKEND_APP_NAME --src-path webapp-code/backend.zip --type zip"
-  echo "2. Deploy frontend code: az staticwebapp environment set --name $FRONTEND_APP_NAME --environment-name default --source webapp-code/frontend.zip"
+  echo "1. Deploy backend code:"
+  echo "   Primary: az webapp deploy --resource-group $RESOURCE_GROUP --name $BACKEND_APP_NAME --src-path webapp-code/backend.zip --type zip"
+  echo "   Alternative: Upload webapp-code/backend.zip via Azure Portal if connectivity issues occur"
+  echo "2. Deploy frontend code:"
+  echo "   Primary: az staticwebapp environment set --name $FRONTEND_APP_NAME --environment-name default --source webapp-code/frontend.zip"
+  echo "   Alternative: Upload webapp-code/frontend.zip via Azure Portal"
   echo "3. Configure Azure Model Router credentials in the app"
+  echo ""
+  echo "💡 If you encounter DNS resolution errors (getaddrinfo failed):"
+  echo "   This indicates network connectivity issues. Use Azure Portal for manual deployment."
 fi
