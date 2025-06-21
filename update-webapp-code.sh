@@ -181,7 +181,32 @@ touch "$BACKEND_DIR/app/__init__.py"
 
 echo "📦 Packaging backend code..."
 cd "$BACKEND_DIR"
-zip -r "$ORIGINAL_DIR/webapp-code/backend.zip" . -x "*.pyc" "__pycache__/*" ".env"
+
+if command -v zip >/dev/null 2>&1; then
+    echo "✅ Using zip command to package backend..."
+    zip -r "$ORIGINAL_DIR/webapp-code/backend.zip" . -x "*.pyc" "__pycache__/*" ".env"
+else
+    echo "⚠️  Zip command not available. Please manually create backend.zip:"
+    echo "   1. Navigate to the ./backend directory"
+    echo "   2. Select all files and folders (excluding .pyc files and __pycache__ folders)"
+    echo "   3. Create a zip archive named 'backend.zip'"
+    echo "   4. Move the backend.zip file to ./webapp-code/backend.zip"
+    echo ""
+    echo "   Files to include in backend.zip:"
+    find . -type f ! -name "*.pyc" ! -path "*/__pycache__/*" ! -name ".env" | sed 's|^\./|   - |'
+    echo ""
+    echo "   Expected location: $ORIGINAL_DIR/webapp-code/backend.zip"
+    echo ""
+    read -p "Press Enter after you have manually created backend.zip in ./webapp-code/ directory..."
+    
+    if [ ! -f "$ORIGINAL_DIR/webapp-code/backend.zip" ]; then
+        echo "❌ Error: backend.zip not found in ./webapp-code/ directory"
+        echo "Please create the zip file and run the script again."
+        exit 1
+    else
+        echo "✅ Found backend.zip in ./webapp-code/ directory"
+    fi
+fi
 
 FRONTEND_DIR="./frontend"
 rm -rf "$FRONTEND_DIR"
@@ -560,6 +585,31 @@ npm run build
 
 echo "📦 Packaging frontend code..."
 cd dist
-zip -r "$ORIGINAL_DIR/webapp-code/frontend.zip" .
+
+if command -v zip >/dev/null 2>&1; then
+    echo "✅ Using zip command to package frontend..."
+    zip -r "$ORIGINAL_DIR/webapp-code/frontend.zip" .
+else
+    echo "⚠️  Zip command not available. Please manually create frontend.zip:"
+    echo "   1. Navigate to the ./frontend/dist directory"
+    echo "   2. Select all files and folders in the dist directory"
+    echo "   3. Create a zip archive named 'frontend.zip'"
+    echo "   4. Move the frontend.zip file to ./webapp-code/frontend.zip"
+    echo ""
+    echo "   Files to include in frontend.zip (from ./frontend/dist/):"
+    find . -type f | sed 's|^\./|   - |'
+    echo ""
+    echo "   Expected location: $ORIGINAL_DIR/webapp-code/frontend.zip"
+    echo ""
+    read -p "Press Enter after you have manually created frontend.zip in ./webapp-code/ directory..."
+    
+    if [ ! -f "$ORIGINAL_DIR/webapp-code/frontend.zip" ]; then
+        echo "❌ Error: frontend.zip not found in ./webapp-code/ directory"
+        echo "Please create the zip file and run the script again."
+        exit 1
+    else
+        echo "✅ Found frontend.zip in ./webapp-code/ directory"
+    fi
+fi
 
 echo "✅ Updated webapp-code packages with backend URL: $BACKEND_URL"
