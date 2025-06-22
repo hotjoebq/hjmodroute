@@ -598,6 +598,24 @@ if [ "$DEPLOY_CODE" = true ]; then
   
   echo "🎨 Deploying frontend code..."
   
+  echo "🔧 Checking Azure CLI staticwebapp extension..."
+  if ! az extension list --query "[?name=='staticwebapp']" --output table 2>/dev/null | grep -q staticwebapp; then
+    echo "   Installing staticwebapp extension..."
+    if az extension add --name staticwebapp --allow-preview 2>/dev/null; then
+      echo "   ✅ staticwebapp extension installed successfully"
+    else
+      echo "   ❌ Failed to install staticwebapp extension"
+    fi
+  else
+    echo "   ✅ staticwebapp extension already installed"
+  fi
+  
+  echo "🔐 Checking Azure CLI authentication..."
+  if ! az account show &>/dev/null; then
+    echo "   ❌ Azure CLI not authenticated. Please run: az login"
+    echo "   Continuing with SWA CLI and manual methods..."
+  fi
+  
   local frontend_deployed=false
   
   if [ ! -f "webapp-code/frontend.zip" ]; then
@@ -642,41 +660,42 @@ EOF
     fi
     
     if [ "$frontend_deployed" = false ]; then
-      echo "   Attempting method 2: az staticwebapp environment set"
-      if az staticwebapp environment set \
-        --name "$FRONTEND_APP_NAME" \
-        --environment-name default \
-        --source webapp-code/frontend.zip 2>/dev/null; then
+      echo "   Attempting method 2: Azure CLI with REST API deployment"
+      
+      if az staticwebapp --help &>/dev/null; then
+        echo "   ✅ Azure CLI staticwebapp extension is working"
         
-        echo "✅ Frontend deployment completed successfully!"
-        frontend_deployed=true
-      else
-        echo "   ❌ Method 2 failed"
-        
-        echo "   Attempting method 3: az staticwebapp environment set with resource group"
-        if az staticwebapp environment set \
-          --name "$FRONTEND_APP_NAME" \
-          --environment-name default \
-          --source webapp-code/frontend.zip \
-          --resource-group "$RESOURCE_GROUP" 2>/dev/null; then
-          
-          echo "✅ Frontend deployment completed successfully!"
-          frontend_deployed=true
-        else
-          echo "   ❌ Method 3 failed"
-          
-          echo "   Attempting method 4: az staticwebapp deployment create"
-          if az staticwebapp deployment create \
+        if az account show &>/dev/null; then
+          echo "   Attempting to get deployment token..."
+          DEPLOYMENT_TOKEN=$(az staticwebapp secrets list \
             --name "$FRONTEND_APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
-            --source webapp-code/frontend.zip 2>/dev/null; then
+            --query "properties.apiKey" \
+            --output tsv 2>/dev/null)
+          
+          if [ -n "$DEPLOYMENT_TOKEN" ] && [ "$DEPLOYMENT_TOKEN" != "null" ]; then
+            echo "   ✅ Got deployment token, attempting REST API deployment..."
             
-            echo "✅ Frontend deployment completed successfully!"
-            frontend_deployed=true
+            if curl -X POST \
+              -H "Authorization: Bearer $DEPLOYMENT_TOKEN" \
+              -H "Content-Type: application/zip" \
+              --data-binary @webapp-code/frontend.zip \
+              "https://$FRONTEND_APP_NAME.azurestaticapps.net/.auth/api/deployments" \
+              --silent --show-error 2>/dev/null; then
+              
+              echo "✅ Frontend deployment completed successfully via REST API!"
+              frontend_deployed=true
+            else
+              echo "   ❌ REST API deployment failed"
+            fi
           else
-            echo "   ❌ Method 4 failed"
+            echo "   ❌ Could not get deployment token"
           fi
+        else
+          echo "   ❌ Azure CLI not authenticated"
         fi
+      else
+        echo "   ❌ Azure CLI staticwebapp extension not working properly"
       fi
     fi
   fi
