@@ -196,18 +196,29 @@ verify_frontend_deployment() {
   echo "🔍 Verifying frontend deployment..."
   echo "   Frontend URL: $frontend_url"
   echo "   Expected: Model Router interface"
-  echo "   Current: Check if showing placeholder page"
+  echo "   Current: Checking deployment status..."
   echo ""
-  echo "💡 To verify deployment success:"
-  echo "   1. Open $frontend_url in your browser"
-  echo "   2. Look for 'Azure AI Foundry Model Router' title"
-  echo "   3. Should see chat interface, not 'Congratulations' placeholder"
-  echo ""
-  echo "🔧 If still showing placeholder after deployment:"
-  echo "   1. Wait 2-3 minutes for Azure Static Web Apps to update"
-  echo "   2. Clear browser cache (Ctrl+F5 or Cmd+Shift+R)"
-  echo "   3. Try incognito/private browsing mode"
-  echo "   4. Check Azure Portal → Static Web Apps → $app_name → Deployment history"
+  
+  if curl -s "$frontend_url" | grep -q "Azure AI Foundry Model Router"; then
+    echo "✅ SUCCESS: Model Router interface detected!"
+    echo "   Frontend deployment is working correctly"
+    return 0
+  else
+    echo "❌ ISSUE: Still showing placeholder page"
+    echo "   Frontend shows 'Congratulations on your new site!' instead of Model Router"
+    echo ""
+    echo "💡 To verify deployment success:"
+    echo "   1. Open $frontend_url in your browser"
+    echo "   2. Look for 'Azure AI Foundry Model Router' title"
+    echo "   3. Should see chat interface, not 'Congratulations' placeholder"
+    echo ""
+    echo "🔧 If still showing placeholder after deployment:"
+    echo "   1. Wait 2-3 minutes for Azure Static Web Apps to update"
+    echo "   2. Clear browser cache (Ctrl+F5 or Cmd+Shift+R)"
+    echo "   3. Try incognito/private browsing mode"
+    echo "   4. Check Azure Portal → Static Web Apps → $app_name → Deployment history"
+    return 1
+  fi
 }
 
 deploy_via_ftp() {
@@ -692,11 +703,37 @@ if [ "$DEPLOY_CODE" = true ]; then
   echo ""
   
   if [ "$FRONTEND_DEPLOYMENT_FAILED" = true ]; then
-    echo "⚠️  Frontend showing placeholder page - manual deployment required"
+    echo "⚠️  Frontend deployment failed - manual deployment required"
     verify_frontend_deployment "$FRONTEND_URL" "$FRONTEND_APP_NAME"
+    
+    echo ""
+    echo "🔧 IMMEDIATE ACTION REQUIRED:"
+    echo "   The frontend is showing a placeholder page instead of the Model Router interface."
+    echo "   Please manually deploy the frontend using one of these methods:"
+    echo ""
+    echo "   📋 Method 1: Azure Portal (Recommended)"
+    echo "      1. Go to https://portal.azure.com"
+    echo "      2. Navigate to Static Web Apps → $FRONTEND_APP_NAME"
+    echo "      3. Click 'Deployment' → 'Source' → 'Upload'"
+    echo "      4. Upload: $(pwd)/webapp-code/frontend.zip"
+    echo "      5. Wait 2-3 minutes for deployment"
+    echo ""
+    echo "   📋 Method 2: Azure CLI (if authenticated)"
+    echo "      az staticwebapp environment set \\"
+    echo "        --name $FRONTEND_APP_NAME \\"
+    echo "        --environment-name default \\"
+    echo "        --source webapp-code/frontend.zip \\"
+    echo "        --resource-group $RESOURCE_GROUP"
+    echo ""
+    echo "   📋 Method 3: Standalone Script"
+    echo "      ./deploy-frontend-only.sh -g $RESOURCE_GROUP -n $FRONTEND_APP_NAME"
   else
     echo "✅ Frontend deployment completed - verifying..."
-    verify_frontend_deployment "$FRONTEND_URL" "$FRONTEND_APP_NAME"
+    if verify_frontend_deployment "$FRONTEND_URL" "$FRONTEND_APP_NAME"; then
+      echo "🎉 SUCCESS: Model Router interface is live and accessible!"
+    else
+      echo "⚠️  Verification failed - frontend may need manual deployment"
+    fi
   fi
   
   echo ""
@@ -705,6 +742,17 @@ if [ "$DEPLOY_CODE" = true ]; then
   echo "2. Verify you see the Model Router interface (not placeholder page)"
   echo "3. Click 'Settings' to configure your Azure Model Router credentials"
   echo "4. Test the application with various prompts"
+  echo ""
+  echo "📊 Monitoring:"
+  echo "   You can monitor deployment status with:"
+  echo "   while true; do"
+  echo "     if curl -s $FRONTEND_URL | grep -q 'Azure AI Foundry Model Router'; then"
+  echo "       echo 'SUCCESS: Model Router interface detected!'; break"
+  echo "     else"
+  echo "       echo 'WAITING: Still showing placeholder page'"
+  echo "     fi"
+  echo "     sleep 30"
+  echo "   done"
 else
   echo "📝 Next Steps:"
   echo "1. Deploy backend code:"
