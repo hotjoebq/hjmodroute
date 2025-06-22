@@ -189,6 +189,27 @@ deploy_run_from_package() {
   return 0
 }
 
+verify_frontend_deployment() {
+  local frontend_url="$1"
+  local app_name="$2"
+  
+  echo "🔍 Verifying frontend deployment..."
+  echo "   Frontend URL: $frontend_url"
+  echo "   Expected: Model Router interface"
+  echo "   Current: Check if showing placeholder page"
+  echo ""
+  echo "💡 To verify deployment success:"
+  echo "   1. Open $frontend_url in your browser"
+  echo "   2. Look for 'Azure AI Foundry Model Router' title"
+  echo "   3. Should see chat interface, not 'Congratulations' placeholder"
+  echo ""
+  echo "🔧 If still showing placeholder after deployment:"
+  echo "   1. Wait 2-3 minutes for Azure Static Web Apps to update"
+  echo "   2. Clear browser cache (Ctrl+F5 or Cmd+Shift+R)"
+  echo "   3. Try incognito/private browsing mode"
+  echo "   4. Check Azure Portal → Static Web Apps → $app_name → Deployment history"
+}
+
 deploy_via_ftp() {
   local resource_group="$1"
   local app_name="$2"
@@ -568,39 +589,47 @@ if [ "$DEPLOY_CODE" = true ]; then
   
   local frontend_deployed=false
   
-  echo "   Attempting method 1: az staticwebapp environment set"
-  if az staticwebapp environment set \
-    --name "$FRONTEND_APP_NAME" \
-    --environment-name default \
-    --source webapp-code/frontend.zip 2>/dev/null; then
-    
-    echo "✅ Frontend deployment completed successfully!"
-    frontend_deployed=true
+  if [ ! -f "webapp-code/frontend.zip" ]; then
+    echo "❌ Frontend zip file not found at webapp-code/frontend.zip"
+    echo "   Please run the deployment script with infrastructure deployment first"
+    FRONTEND_DEPLOYMENT_FAILED=true
   else
-    echo "   ❌ Method 1 failed"
+    echo "✅ Frontend zip file found ($(du -h webapp-code/frontend.zip | cut -f1))"
     
-    echo "   Attempting method 2: az staticwebapp environment set with resource group"
+    echo "   Attempting method 1: az staticwebapp environment set"
     if az staticwebapp environment set \
       --name "$FRONTEND_APP_NAME" \
       --environment-name default \
-      --source webapp-code/frontend.zip \
-      --resource-group "$RESOURCE_GROUP" 2>/dev/null; then
+      --source webapp-code/frontend.zip 2>/dev/null; then
       
       echo "✅ Frontend deployment completed successfully!"
       frontend_deployed=true
     else
-      echo "   ❌ Method 2 failed"
+      echo "   ❌ Method 1 failed"
       
-      echo "   Attempting method 3: az staticwebapp deployment create"
-      if az staticwebapp deployment create \
+      echo "   Attempting method 2: az staticwebapp environment set with resource group"
+      if az staticwebapp environment set \
         --name "$FRONTEND_APP_NAME" \
-        --resource-group "$RESOURCE_GROUP" \
-        --source webapp-code/frontend.zip 2>/dev/null; then
+        --environment-name default \
+        --source webapp-code/frontend.zip \
+        --resource-group "$RESOURCE_GROUP" 2>/dev/null; then
         
         echo "✅ Frontend deployment completed successfully!"
         frontend_deployed=true
       else
-        echo "   ❌ Method 3 failed"
+        echo "   ❌ Method 2 failed"
+        
+        echo "   Attempting method 3: az staticwebapp deployment create"
+        if az staticwebapp deployment create \
+          --name "$FRONTEND_APP_NAME" \
+          --resource-group "$RESOURCE_GROUP" \
+          --source webapp-code/frontend.zip 2>/dev/null; then
+          
+          echo "✅ Frontend deployment completed successfully!"
+          frontend_deployed=true
+        else
+          echo "   ❌ Method 3 failed"
+        fi
       fi
     fi
   fi
@@ -610,15 +639,30 @@ if [ "$DEPLOY_CODE" = true ]; then
     echo "📁 Frontend zip file ready at: $(pwd)/webapp-code/frontend.zip"
     echo ""
     echo "🔧 Manual Frontend Deployment Options:"
-    echo "   1. Azure Portal: Go to Static Web Apps → $FRONTEND_APP_NAME → Overview → 'Browse' → Upload"
-    echo "   2. Azure Portal: Go to Static Web Apps → $FRONTEND_APP_NAME → Deployment → Upload zip"
-    echo "   3. GitHub Actions: Connect your repository for automated deployment"
-    echo "   4. Azure CLI (manual): az staticwebapp environment set --name $FRONTEND_APP_NAME --environment-name default --source webapp-code/frontend.zip"
+    echo "   1. Azure Portal Method (Recommended):"
+    echo "      a. Go to https://portal.azure.com"
+    echo "      b. Navigate to Static Web Apps → $FRONTEND_APP_NAME"
+    echo "      c. Click 'Overview' → 'Browse' to see current placeholder"
+    echo "      d. Go to 'Deployment' → 'Source' → 'Upload'"
+    echo "      e. Upload webapp-code/frontend.zip"
+    echo "      f. Wait 2-3 minutes for deployment to complete"
     echo ""
-    echo "💡 Common issues:"
-    echo "   - Windows: 'set' command not recognized → Use PowerShell or Git Bash"
+    echo "   2. Azure CLI Method (if authenticated):"
+    echo "      az staticwebapp environment set \\"
+    echo "        --name $FRONTEND_APP_NAME \\"
+    echo "        --environment-name default \\"
+    echo "        --source webapp-code/frontend.zip \\"
+    echo "        --resource-group $RESOURCE_GROUP"
+    echo ""
+    echo "   3. GitHub Actions Method:"
+    echo "      Connect your repository for automated deployment"
+    echo ""
+    echo "💡 Common issues and solutions:"
+    echo "   - Authentication: Run 'az login' before using Azure CLI"
+    echo "   - Windows: Use PowerShell or Git Bash instead of Command Prompt"
     echo "   - Permissions: Ensure you have Static Web Apps Contributor role"
-    echo "   - File size: Ensure frontend.zip is under 100MB"
+    echo "   - File size: Ensure frontend.zip is under 100MB (current: $(du -h webapp-code/frontend.zip | cut -f1))"
+    echo "   - Network: Check VPN/firewall if Azure CLI commands fail"
     FRONTEND_DEPLOYMENT_FAILED=true
   fi
   
@@ -646,10 +690,21 @@ if [ "$DEPLOY_CODE" = true ]; then
   echo "   Frontend: $FRONTEND_URL"
   echo "   Backend:  $BACKEND_URL"
   echo ""
+  
+  if [ "$FRONTEND_DEPLOYMENT_FAILED" = true ]; then
+    echo "⚠️  Frontend showing placeholder page - manual deployment required"
+    verify_frontend_deployment "$FRONTEND_URL" "$FRONTEND_APP_NAME"
+  else
+    echo "✅ Frontend deployment completed - verifying..."
+    verify_frontend_deployment "$FRONTEND_URL" "$FRONTEND_APP_NAME"
+  fi
+  
+  echo ""
   echo "📝 Next Steps:"
-  echo "1. Open the frontend URL in your browser"
-  echo "2. Click 'Settings' to configure your Azure Model Router credentials"
-  echo "3. Test the application with various prompts"
+  echo "1. Open the frontend URL in your browser: $FRONTEND_URL"
+  echo "2. Verify you see the Model Router interface (not placeholder page)"
+  echo "3. Click 'Settings' to configure your Azure Model Router credentials"
+  echo "4. Test the application with various prompts"
 else
   echo "📝 Next Steps:"
   echo "1. Deploy backend code:"
