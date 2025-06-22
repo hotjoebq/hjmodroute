@@ -9,22 +9,37 @@ Both SWA CLI and Azure CLI deployment methods require authentication:
 - **Azure CLI**: Requires `az login` authentication to access Static Web Apps resources
 - **Extension Status**: ✅ Azure CLI staticwebapp extension now properly installed (v1.0.0)
 
-## Working Solutions
+## Working Solutions (Updated)
 
-### Method 1: Enhanced Deployment Script (Requires Authentication)
+### Method 1: GitHub Actions Deployment (Most Reliable) ⭐ RECOMMENDED
 
-The Azure CLI staticwebapp extension is now properly installed. Run the enhanced deployment script:
+**Automated deployment via GitHub Actions:**
 ```bash
-# Authenticate first (required)
-az login
+# Trigger deployment workflow
+gh workflow run deploy-frontend.yml --ref main
 
-# Then deploy
-./deploy-frontend-only.sh -g hj-modroute-rg -n hjmrdevproj-frontend-dev-nyuxwr
+# Monitor deployment
+gh run list --workflow=deploy-frontend.yml
 ```
 
-**Note**: This method requires completing Azure authentication in the browser.
+**Setup Requirements:**
+1. Get deployment token from Azure Portal → Static Web Apps → Overview → Manage deployment token
+2. Add token as GitHub secret: `AZURE_STATIC_WEB_APPS_API_TOKEN`
+3. Push changes to main branch or trigger workflow manually
 
-### Method 2: Manual Azure Portal Deployment (Most Reliable)
+### Method 2: REST API Deployment (Reliable Fallback)
+
+**Direct deployment using REST API:**
+```bash
+# Authenticate with Azure CLI
+az login
+
+# Run REST API deployment script
+chmod +x deploy-via-rest-api.sh
+./deploy-via-rest-api.sh
+```
+
+### Method 3: Manual Azure Portal (When CLI methods fail)
 
 **Step-by-Step Instructions:**
 
@@ -45,17 +60,19 @@ az login
    - Should show: "Congratulations on your new site!" (placeholder)
    - URL: https://black-meadow-061e0720f.1.azurestaticapps.net
 
-5. **Deploy New Content**
+5. **Deploy New Content (Updated Portal Instructions)**
    
-   **Option A: Deployment Center**
-   - Click "Deployment" in left sidebar
-   - Look for "Source" or "Upload" option
-   - Upload `frontend.zip`
+   **Option A: Overview → Manage Deployment**
+   - Click "Overview" in left sidebar
+   - Look for "Manage deployment token" section
+   - Copy deployment token for REST API use
    
-   **Option B: Configuration**
-   - Click "Configuration" in left sidebar
-   - Look for "Application files" section
-   - Upload `frontend.zip`
+   **Option B: Functions → App Files**
+   - Click "Functions" in left sidebar
+   - Look for "App files" section if available
+   - Upload `frontend.zip` if option exists
+   
+   **Note**: Direct file upload may not be available in all portal versions
 
 6. **Monitor Deployment**
    - Go to "Deployment" → "Deployment history"

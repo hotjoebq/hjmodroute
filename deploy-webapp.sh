@@ -597,25 +597,6 @@ if [ "$DEPLOY_CODE" = true ]; then
   fi
   
   echo "🎨 Deploying frontend code..."
-  
-  echo "🔧 Checking Azure CLI staticwebapp extension..."
-  if ! az extension list --query "[?name=='staticwebapp']" --output table 2>/dev/null | grep -q staticwebapp; then
-    echo "   Installing staticwebapp extension..."
-    if az extension add --name staticwebapp --allow-preview 2>/dev/null; then
-      echo "   ✅ staticwebapp extension installed successfully"
-    else
-      echo "   ❌ Failed to install staticwebapp extension"
-    fi
-  else
-    echo "   ✅ staticwebapp extension already installed"
-  fi
-  
-  echo "🔐 Checking Azure CLI authentication..."
-  if ! az account show &>/dev/null; then
-    echo "   ❌ Azure CLI not authenticated. Please run: az login"
-    echo "   Continuing with SWA CLI and manual methods..."
-  fi
-  
   local frontend_deployed=false
   
   if [ ! -f "webapp-code/frontend.zip" ]; then
@@ -625,13 +606,80 @@ if [ "$DEPLOY_CODE" = true ]; then
   else
     echo "✅ Frontend zip file found ($(du -h webapp-code/frontend.zip | cut -f1))"
     
-    echo "   Attempting method 1: SWA CLI deployment"
-    if command -v swa &> /dev/null; then
-      mkdir -p frontend-deploy-temp
-      cd frontend-deploy-temp
-      unzip -q ../webapp-code/frontend.zip
+    echo "   Attempting method 1: GitHub Actions deployment"
+    if command -v gh &> /dev/null && git remote get-url origin &> /dev/null; then
+      echo "   Triggering GitHub Actions workflow..."
+      if gh workflow run deploy-frontend.yml --ref $(git branch --show-current) 2>/dev/null; then
+        echo "✅ GitHub Actions deployment triggered successfully!"
+        echo "   Monitor deployment at: https://github.com/$(gh repo view --json nameWithOwner --jq .nameWithOwner)/actions"
+        frontend_deployed=true
+      else
+        echo "   ❌ GitHub Actions trigger failed, trying REST API..."
+      fi
+    else
+      echo "   ❌ GitHub CLI not available or not in git repository, trying REST API..."
+    fi
+    
+    if [ "$frontend_deployed" = false ]; then
+      echo "   Attempting method 2: REST API deployment"
+      if command -v az &> /dev/null && az account show &> /dev/null; then
+        echo "   Getting deployment token..."
+        DEPLOYMENT_TOKEN=$(az staticwebapp secrets list \
+          --name "$FRONTEND_APP_NAME" \
+          --resource-group "$RESOURCE_GROUP" \
+          --query "properties.apiKey" \
+          --output tsv 2>/dev/null)
+        
+        if [ -n "$DEPLOYMENT_TOKEN" ] && [ "$DEPLOYMENT_TOKEN" != "null" ]; then
+          echo "   ✅ Got deployment token, deploying via REST API..."
+          if curl -X POST \
+            -H "Authorization: Bearer $DEPLOYMENT_TOKEN" \
+            -H "Content-Type: application/zip" \
+            --data-binary @webapp-code/frontend.zip \
+            "https://$FRONTEND_APP_NAME.azurestaticapps.net/.auth/api/deployments" \
+            --silent --show-error --fail; then
+            
+            echo "✅ Frontend deployment completed successfully via REST API!"
+            frontend_deployed=true
+          else
+            echo "   ❌ REST API deployment failed, trying SWA CLI..."
+          fi
+        else
+          echo "   ❌ Could not get deployment token, trying SWA CLI..."
+        fi
+      else
+        echo "   ❌ Azure CLI not authenticated, trying SWA CLI..."
+      fi
+    fi
+    
+    if [ "$frontend_deployed" = false ]; then
+      echo "🔧 Checking Azure CLI staticwebapp extension..."
+      if ! az extension list --query "[?name=='staticwebapp']" --output table 2>/dev/null | grep -q staticwebapp; then
+        echo "   Installing staticwebapp extension..."
+        if az extension add --name staticwebapp --allow-preview 2>/dev/null; then
+          echo "   ✅ staticwebapp extension installed successfully"
+        else
+          echo "   ❌ Failed to install staticwebapp extension"
+        fi
+      else
+        echo "   ✅ staticwebapp extension already installed"
+      fi
       
-      cat > swa-cli.config.json << EOF
+      echo "🔐 Checking Azure CLI authentication..."
+      if ! az account show &>/dev/null; then
+        echo "   ❌ Azure CLI not authenticated. Please run: az login"
+        echo "   Continuing with SWA CLI and manual methods..."
+      fi
+      
+      echo "   Attempting method 3: SWA CLI deployment"
+      echo "   Note: SWA CLI may fail with StaticSitesClient binary errors"
+      echo "   This is a known issue with network/proxy restrictions"
+      if command -v swa &> /dev/null; then
+        mkdir -p frontend-deploy-temp
+        cd frontend-deploy-temp
+        unzip -q ../webapp-code/frontend.zip
+        
+        cat > swa-cli.config.json << EOF
 {
   "\$schema": "https://aka.ms/azure/static-web-apps-cli/schema",
   "configurations": {
@@ -644,99 +692,50 @@ if [ "$DEPLOY_CODE" = true ]; then
   }
 }
 EOF
-      
-      if swa login --subscription-id "$(az account show --query id --output tsv)" --resource-group "$RESOURCE_GROUP" --app-name "$FRONTEND_APP_NAME" &> /dev/null && \
-         swa deploy --env production &> /dev/null; then
-        echo "✅ Frontend deployment completed successfully via SWA CLI!"
-        frontend_deployed=true
+        
+        if swa login --subscription-id "$(az account show --query id --output tsv)" --resource-group "$RESOURCE_GROUP" --app-name "$FRONTEND_APP_NAME" &> /dev/null && \
+           swa deploy --env production &> /dev/null; then
+          echo "✅ Frontend deployment completed successfully via SWA CLI!"
+          frontend_deployed=true
+        else
+          echo "   ❌ SWA CLI method failed (likely StaticSitesClient binary error)"
+          echo "   This is a known issue - see STATICSITE_CLIENT_ERROR_TROUBLESHOOTING.md"
+        fi
+        
+        cd ..
+        rm -rf frontend-deploy-temp
       else
-        echo "   ❌ SWA CLI method failed, trying Azure CLI methods..."
+        echo "   ❌ SWA CLI not found"
       fi
-      
-      cd ..
-      rm -rf frontend-deploy-temp
-    else
-      echo "   ❌ SWA CLI not found, trying Azure CLI methods..."
     fi
     
-    if [ "$frontend_deployed" = false ]; then
-      echo "   Attempting method 2: Azure CLI with REST API deployment"
-      
-      if az staticwebapp --help &>/dev/null; then
-        echo "   ✅ Azure CLI staticwebapp extension is working"
-        
-        if az account show &>/dev/null; then
-          echo "   Attempting to get deployment token..."
-          DEPLOYMENT_TOKEN=$(az staticwebapp secrets list \
-            --name "$FRONTEND_APP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "properties.apiKey" \
-            --output tsv 2>/dev/null)
-          
-          if [ -n "$DEPLOYMENT_TOKEN" ] && [ "$DEPLOYMENT_TOKEN" != "null" ]; then
-            echo "   ✅ Got deployment token, attempting REST API deployment..."
-            
-            if curl -X POST \
-              -H "Authorization: Bearer $DEPLOYMENT_TOKEN" \
-              -H "Content-Type: application/zip" \
-              --data-binary @webapp-code/frontend.zip \
-              "https://$FRONTEND_APP_NAME.azurestaticapps.net/.auth/api/deployments" \
-              --silent --show-error 2>/dev/null; then
-              
-              echo "✅ Frontend deployment completed successfully via REST API!"
-              frontend_deployed=true
-            else
-              echo "   ❌ REST API deployment failed"
-            fi
-          else
-            echo "   ❌ Could not get deployment token"
-          fi
-        else
-          echo "   ❌ Azure CLI not authenticated"
-        fi
-      else
-        echo "   ❌ Azure CLI staticwebapp extension not working properly"
-      fi
-    fi
+
   fi
   
   if [ "$frontend_deployed" = false ]; then
-    echo "❌ All frontend deployment methods failed"
-    echo "📁 Frontend zip file ready at: $(pwd)/webapp-code/frontend.zip"
+    echo "❌ All automated deployment methods failed."
     echo ""
-    echo "🔧 Manual Frontend Deployment Options:"
-    echo "   1. SWA CLI Method (Recommended for Existing Apps):"
-    echo "      a. Install SWA CLI: npm install -g @azure/static-web-apps-cli"
-    echo "      b. Extract frontend.zip to a directory"
-    echo "      c. Create swa-cli.config.json with app configuration"
-    echo "      d. Run: swa login --subscription-id \$(az account show --query id --output tsv) --resource-group $RESOURCE_GROUP --app-name $FRONTEND_APP_NAME"
-    echo "      e. Run: swa deploy --env production"
+    echo "🔍 StaticSitesClient Binary Error Troubleshooting:"
+    echo "   This appears to be a StaticSitesClient binary download issue preventing SWA CLI deployment."
+    echo "   The error 'Could not find StaticSitesClient local binary' indicates network/proxy restrictions."
     echo ""
-    echo "   2. Azure Portal Method:"
-    echo "      a. Go to https://portal.azure.com"
-    echo "      b. Navigate to Static Web Apps → $FRONTEND_APP_NAME"
-    echo "      c. Click 'Overview' → 'Browse' to see current placeholder"
-    echo "      d. Go to 'Deployment' → 'Source' → 'Upload'"
-    echo "      e. Upload webapp-code/frontend.zip"
-    echo "      f. Wait 2-3 minutes for deployment to complete"
+    echo "📋 Manual Deployment Options:"
+    echo "   1. Azure Portal: Go to Static Web Apps → Overview → Manage deployment token"
+    echo "   2. GitHub Actions: Set up automated deployment via repository workflow"
+    echo "   3. REST API: Use deployment token with curl (see deploy-via-rest-api.sh)"
+    echo "   4. Azure DevOps: Use Azure Pipelines for deployment"
     echo ""
-    echo "   3. Azure CLI Method (if authenticated):"
-    echo "      az staticwebapp environment set \\"
-    echo "        --name $FRONTEND_APP_NAME \\"
-    echo "        --environment-name default \\"
-    echo "        --source webapp-code/frontend.zip \\"
-    echo "        --resource-group $RESOURCE_GROUP"
+    echo "🔧 Immediate Action Required:"
+    echo "   1. Download: webapp-code/frontend.zip ($(du -h webapp-code/frontend.zip | cut -f1))"
+    echo "   2. Azure Portal: https://portal.azure.com"
+    echo "   3. Navigate: Static Web Apps → $FRONTEND_APP_NAME → Overview"
+    echo "   4. Get Token: Click 'Manage deployment token' and copy the token"
+    echo "   5. Deploy: Use REST API script: ./deploy-via-rest-api.sh"
+    echo "   6. Verify: Check https://black-meadow-061e0720f.1.azurestaticapps.net"
     echo ""
-    echo "   4. Standalone Script:"
-    echo "      ./deploy-frontend-only.sh -g $RESOURCE_GROUP -n $FRONTEND_APP_NAME"
+    echo "📖 Detailed Instructions: WORKING_DEPLOYMENT_GUIDE.md"
+    echo "🔧 Error Solutions: STATICSITE_CLIENT_ERROR_TROUBLESHOOTING.md"
     echo ""
-    echo "💡 Common issues and solutions:"
-    echo "   - Authentication: Run 'az login' before using Azure CLI or SWA CLI"
-    echo "   - SWA CLI: Install with 'npm install -g @azure/static-web-apps-cli'"
-    echo "   - Windows: Use PowerShell or Git Bash instead of Command Prompt"
-    echo "   - Permissions: Ensure you have Static Web Apps Contributor role"
-    echo "   - File size: Ensure frontend.zip is under 100MB (current: $(du -h webapp-code/frontend.zip | cut -f1))"
-    echo "   - Network: Check VPN/firewall if Azure CLI commands fail"
     FRONTEND_DEPLOYMENT_FAILED=true
   fi
   
@@ -754,7 +753,7 @@ EOF
       echo "🔧 Frontend Manual Deployment:"
       echo "   1. Go to Azure Portal → Static Web Apps → $FRONTEND_APP_NAME"
       echo "   2. Click 'Overview' → 'Manage deployment token'"
-      echo "   3. Upload webapp-code/frontend.zip manually"
+      echo "   3. Use REST API script: ./deploy-via-rest-api.sh"
     fi
   else
     echo "🎉 Full deployment completed successfully!"
@@ -774,22 +773,21 @@ EOF
     echo "   The frontend is showing a placeholder page instead of the Model Router interface."
     echo "   Please manually deploy the frontend using one of these methods:"
     echo ""
-    echo "   📋 Method 1: Azure Portal (Recommended)"
+    echo "   📋 Method 1: REST API Deployment (Most Reliable)"
+    echo "      1. Authenticate: az login"
+    echo "      2. Run script: ./deploy-via-rest-api.sh"
+    echo "      3. Verify: https://black-meadow-061e0720f.1.azurestaticapps.net"
+    echo ""
+    echo "   📋 Method 2: GitHub Actions (Automated)"
+    echo "      1. Get deployment token from Azure Portal"
+    echo "      2. Add as GitHub secret: AZURE_STATIC_WEB_APPS_API_TOKEN"
+    echo "      3. Trigger workflow: gh workflow run deploy-frontend.yml"
+    echo ""
+    echo "   📋 Method 3: Azure Portal (Manual)"
     echo "      1. Go to https://portal.azure.com"
     echo "      2. Navigate to Static Web Apps → $FRONTEND_APP_NAME"
-    echo "      3. Click 'Deployment' → 'Source' → 'Upload'"
-    echo "      4. Upload: $(pwd)/webapp-code/frontend.zip"
-    echo "      5. Wait 2-3 minutes for deployment"
-    echo ""
-    echo "   📋 Method 2: Azure CLI (if authenticated)"
-    echo "      az staticwebapp environment set \\"
-    echo "        --name $FRONTEND_APP_NAME \\"
-    echo "        --environment-name default \\"
-    echo "        --source webapp-code/frontend.zip \\"
-    echo "        --resource-group $RESOURCE_GROUP"
-    echo ""
-    echo "   📋 Method 3: Standalone Script"
-    echo "      ./deploy-frontend-only.sh -g $RESOURCE_GROUP -n $FRONTEND_APP_NAME"
+    echo "      3. Click 'Overview' → 'Manage deployment token'"
+    echo "      4. Use token with REST API or GitHub Actions"
   else
     echo "✅ Frontend deployment completed - verifying..."
     if verify_frontend_deployment "$FRONTEND_URL" "$FRONTEND_APP_NAME"; then
