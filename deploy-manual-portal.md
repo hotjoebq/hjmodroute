@@ -26,25 +26,29 @@ If both SWA CLI and Azure CLI methods fail, use this manual deployment method vi
 3. You should see "Congratulations on your new site!" placeholder page
 4. Note the URL: https://black-meadow-061e0720f.1.azurestaticapps.net
 
-### 5. Deploy New Content
+### 5. Deploy New Content (Corrected Instructions)
 
-#### Method A: Deployment Center (Recommended)
-1. In the Static Web App, click "Deployment" in the left sidebar
-2. Look for "Deployment Center" or "Source" tab
-3. If you see "Upload" or "Manual deployment" option, click it
-4. Upload the `frontend.zip` file
-5. Wait for deployment to complete (2-3 minutes)
+#### Method A: Overview → Manage Deployment (Recommended)
+1. In the Static Web App, click "Overview" in the left sidebar
+2. Look for "Manage deployment token" or "Browse" section
+3. Click "Manage deployment token" to get deployment credentials
+4. Use the deployment token with REST API or GitHub Actions
 
-#### Method B: Configuration (Alternative)
+#### Method B: Functions → App files (Alternative)
+1. Click "Functions" in the left sidebar
+2. Look for "App files" or "Application files" section
+3. Upload the `frontend.zip` file if available
+
+#### Method C: Configuration → General settings (Advanced)
 1. Click "Configuration" in the left sidebar
-2. Look for "Application files" or "Static content" section
-3. Upload the `frontend.zip` file
-4. Save the configuration
+2. Go to "General settings" tab
+3. Look for deployment or source control options
+4. Configure GitHub repository connection if available
 
-#### Method C: API Management (Advanced)
-1. Click "API Management" in the left sidebar
-2. Look for deployment or upload options
-3. Upload the `frontend.zip` file
+**Note**: The exact menu structure may vary. Look for:
+- Deployment-related options in Overview, Functions, or Configuration
+- "App files", "Source control", or "Repository" sections
+- "Manage deployment token" for API-based deployment
 
 ### 6. Monitor Deployment
 1. Go to "Deployment" → "Deployment history"
