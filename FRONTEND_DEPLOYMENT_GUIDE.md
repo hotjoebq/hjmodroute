@@ -4,9 +4,11 @@
 
 If your Azure Static Web App shows "Congratulations on your new site!" instead of the Model Router interface, the frontend code was not successfully deployed.
 
+**Root Cause**: The automated deployment failed because Azure CLI is not authenticated. The frontend.zip file (132KB) was created successfully but could not be deployed automatically.
+
 ## Quick Fix (Recommended)
 
-### Option 1: Azure Portal (No CLI Required)
+### Option 1: Azure Portal (No CLI Required) ⭐ RECOMMENDED
 1. Go to [Azure Portal](https://portal.azure.com)
 2. Navigate to **Static Web Apps** → `hjmrdevproj-frontend-dev-nyuxwr`
 3. Click **Overview** → **Browse** to confirm placeholder page
@@ -15,8 +17,14 @@ If your Azure Static Web App shows "Congratulations on your new site!" instead o
 6. Wait 2-3 minutes for deployment
 7. Refresh the frontend URL
 
-### Option 2: Azure CLI (If Authenticated)
+### Option 2: Azure CLI (Requires Authentication)
+**Note**: Azure CLI authentication is required for these commands to work.
+
 ```bash
+# First authenticate with Azure
+az login
+
+# Then try deployment methods:
 # Method 1: Simple deployment
 az staticwebapp environment set \
   --name hjmrdevproj-frontend-dev-nyuxwr \
@@ -60,9 +68,20 @@ After deployment:
 - Check deployment history in Azure Portal
 
 ### Azure CLI authentication errors?
+**This is the most common issue preventing automated deployment.**
+
 ```bash
+# Authenticate with Azure
 az login
-az account show  # Verify correct subscription
+
+# Verify correct subscription
+az account show
+
+# Check if Static Web Apps extension is installed
+az extension list --query "[?name=='staticwebapp']"
+
+# Install if missing
+az extension add --name staticwebapp
 ```
 
 ### Permission errors?
