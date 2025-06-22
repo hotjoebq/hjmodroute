@@ -4,23 +4,25 @@
 The Azure Static Web App at https://black-meadow-061e0720f.1.azurestaticapps.net is showing a default "Congratulations on your new site!" placeholder page instead of the Model Router interface.
 
 ## Root Cause
-Both SWA CLI and Azure CLI deployment methods are failing:
-- **SWA CLI**: "StaticSitesClient" binary and network connectivity issues
-- **Azure CLI**: Missing staticwebapp extension ("'set' is misspelled or not recognized")
+Both SWA CLI and Azure CLI deployment methods require authentication:
+- **SWA CLI**: Hangs at "Checking Azure session..." waiting for user authentication
+- **Azure CLI**: Requires `az login` authentication to access Static Web Apps resources
+- **Extension Status**: ✅ Azure CLI staticwebapp extension now properly installed (v1.0.0)
 
 ## Working Solutions
 
-### Method 1: Fix Azure CLI Extension (Recommended for Automation)
+### Method 1: Enhanced Deployment Script (Requires Authentication)
 
-Run the extension fix script first:
+The Azure CLI staticwebapp extension is now properly installed. Run the enhanced deployment script:
 ```bash
-./fix-azure-cli-extension.sh
-```
+# Authenticate first (required)
+az login
 
-Then use the enhanced deployment script:
-```bash
+# Then deploy
 ./deploy-frontend-only.sh -g hj-modroute-rg -n hjmrdevproj-frontend-dev-nyuxwr
 ```
+
+**Note**: This method requires completing Azure authentication in the browser.
 
 ### Method 2: Manual Azure Portal Deployment (Most Reliable)
 
