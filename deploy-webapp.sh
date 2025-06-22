@@ -607,39 +607,75 @@ if [ "$DEPLOY_CODE" = true ]; then
   else
     echo "✅ Frontend zip file found ($(du -h webapp-code/frontend.zip | cut -f1))"
     
-    echo "   Attempting method 1: az staticwebapp environment set"
-    if az staticwebapp environment set \
-      --name "$FRONTEND_APP_NAME" \
-      --environment-name default \
-      --source webapp-code/frontend.zip 2>/dev/null; then
+    echo "   Attempting method 1: SWA CLI deployment"
+    if command -v swa &> /dev/null; then
+      mkdir -p frontend-deploy-temp
+      cd frontend-deploy-temp
+      unzip -q ../webapp-code/frontend.zip
       
-      echo "✅ Frontend deployment completed successfully!"
-      frontend_deployed=true
+      cat > swa-cli.config.json << EOF
+{
+  "\$schema": "https://aka.ms/azure/static-web-apps-cli/schema",
+  "configurations": {
+    "$FRONTEND_APP_NAME": {
+      "appLocation": ".",
+      "outputLocation": ".",
+      "appName": "$FRONTEND_APP_NAME",
+      "resourceGroup": "$RESOURCE_GROUP"
+    }
+  }
+}
+EOF
+      
+      if swa login --subscription-id "$(az account show --query id --output tsv)" --resource-group "$RESOURCE_GROUP" --app-name "$FRONTEND_APP_NAME" &> /dev/null && \
+         swa deploy --env production &> /dev/null; then
+        echo "✅ Frontend deployment completed successfully via SWA CLI!"
+        frontend_deployed=true
+      else
+        echo "   ❌ SWA CLI method failed, trying Azure CLI methods..."
+      fi
+      
+      cd ..
+      rm -rf frontend-deploy-temp
     else
-      echo "   ❌ Method 1 failed"
-      
-      echo "   Attempting method 2: az staticwebapp environment set with resource group"
+      echo "   ❌ SWA CLI not found, trying Azure CLI methods..."
+    fi
+    
+    if [ "$frontend_deployed" = false ]; then
+      echo "   Attempting method 2: az staticwebapp environment set"
       if az staticwebapp environment set \
         --name "$FRONTEND_APP_NAME" \
         --environment-name default \
-        --source webapp-code/frontend.zip \
-        --resource-group "$RESOURCE_GROUP" 2>/dev/null; then
+        --source webapp-code/frontend.zip 2>/dev/null; then
         
         echo "✅ Frontend deployment completed successfully!"
         frontend_deployed=true
       else
         echo "   ❌ Method 2 failed"
         
-        echo "   Attempting method 3: az staticwebapp deployment create"
-        if az staticwebapp deployment create \
+        echo "   Attempting method 3: az staticwebapp environment set with resource group"
+        if az staticwebapp environment set \
           --name "$FRONTEND_APP_NAME" \
-          --resource-group "$RESOURCE_GROUP" \
-          --source webapp-code/frontend.zip 2>/dev/null; then
+          --environment-name default \
+          --source webapp-code/frontend.zip \
+          --resource-group "$RESOURCE_GROUP" 2>/dev/null; then
           
           echo "✅ Frontend deployment completed successfully!"
           frontend_deployed=true
         else
           echo "   ❌ Method 3 failed"
+          
+          echo "   Attempting method 4: az staticwebapp deployment create"
+          if az staticwebapp deployment create \
+            --name "$FRONTEND_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --source webapp-code/frontend.zip 2>/dev/null; then
+            
+            echo "✅ Frontend deployment completed successfully!"
+            frontend_deployed=true
+          else
+            echo "   ❌ Method 4 failed"
+          fi
         fi
       fi
     fi
@@ -650,7 +686,14 @@ if [ "$DEPLOY_CODE" = true ]; then
     echo "📁 Frontend zip file ready at: $(pwd)/webapp-code/frontend.zip"
     echo ""
     echo "🔧 Manual Frontend Deployment Options:"
-    echo "   1. Azure Portal Method (Recommended):"
+    echo "   1. SWA CLI Method (Recommended for Existing Apps):"
+    echo "      a. Install SWA CLI: npm install -g @azure/static-web-apps-cli"
+    echo "      b. Extract frontend.zip to a directory"
+    echo "      c. Create swa-cli.config.json with app configuration"
+    echo "      d. Run: swa login --subscription-id \$(az account show --query id --output tsv) --resource-group $RESOURCE_GROUP --app-name $FRONTEND_APP_NAME"
+    echo "      e. Run: swa deploy --env production"
+    echo ""
+    echo "   2. Azure Portal Method:"
     echo "      a. Go to https://portal.azure.com"
     echo "      b. Navigate to Static Web Apps → $FRONTEND_APP_NAME"
     echo "      c. Click 'Overview' → 'Browse' to see current placeholder"
@@ -658,18 +701,19 @@ if [ "$DEPLOY_CODE" = true ]; then
     echo "      e. Upload webapp-code/frontend.zip"
     echo "      f. Wait 2-3 minutes for deployment to complete"
     echo ""
-    echo "   2. Azure CLI Method (if authenticated):"
+    echo "   3. Azure CLI Method (if authenticated):"
     echo "      az staticwebapp environment set \\"
     echo "        --name $FRONTEND_APP_NAME \\"
     echo "        --environment-name default \\"
     echo "        --source webapp-code/frontend.zip \\"
     echo "        --resource-group $RESOURCE_GROUP"
     echo ""
-    echo "   3. GitHub Actions Method:"
-    echo "      Connect your repository for automated deployment"
+    echo "   4. Standalone Script:"
+    echo "      ./deploy-frontend-only.sh -g $RESOURCE_GROUP -n $FRONTEND_APP_NAME"
     echo ""
     echo "💡 Common issues and solutions:"
-    echo "   - Authentication: Run 'az login' before using Azure CLI"
+    echo "   - Authentication: Run 'az login' before using Azure CLI or SWA CLI"
+    echo "   - SWA CLI: Install with 'npm install -g @azure/static-web-apps-cli'"
     echo "   - Windows: Use PowerShell or Git Bash instead of Command Prompt"
     echo "   - Permissions: Ensure you have Static Web Apps Contributor role"
     echo "   - File size: Ensure frontend.zip is under 100MB (current: $(du -h webapp-code/frontend.zip | cut -f1))"

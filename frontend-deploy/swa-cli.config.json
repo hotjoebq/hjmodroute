@@ -1,0 +1,11 @@
+{
+  "$schema": "https://aka.ms/azure/static-web-apps-cli/schema",
+  "configurations": {
+    "hjmrdevproj-frontend-dev-nyuxwr": {
+      "appLocation": ".",
+      "outputLocation": ".",
+      "appName": "hjmrdevproj-frontend-dev-nyuxwr",
+      "resourceGroup": "hj-modroute-rg"
+    }
+  }
+}

@@ -8,7 +8,38 @@ If your Azure Static Web App shows "Congratulations on your new site!" instead o
 
 ## Quick Fix (Recommended)
 
-### Option 1: Azure Portal (No CLI Required) ⭐ RECOMMENDED
+### Option 1: SWA CLI Method (Most Reliable) ⭐ RECOMMENDED
+This method uses the official Static Web Apps CLI and works reliably with existing apps:
+
+```bash
+# Install SWA CLI if not already installed
+npm install -g @azure/static-web-apps-cli
+
+# Create deployment directory
+mkdir frontend-deploy && cd frontend-deploy
+unzip ../webapp-code/frontend.zip
+
+# Create SWA CLI configuration
+cat > swa-cli.config.json << 'EOF'
+{
+  "$schema": "https://aka.ms/azure/static-web-apps-cli/schema",
+  "configurations": {
+    "hjmrdevproj-frontend-dev-nyuxwr": {
+      "appLocation": ".",
+      "outputLocation": ".",
+      "appName": "hjmrdevproj-frontend-dev-nyuxwr",
+      "resourceGroup": "hj-modroute-rg"
+    }
+  }
+}
+EOF
+
+# Login and deploy
+swa login --subscription-id $(az account show --query id --output tsv) --resource-group hj-modroute-rg --app-name hjmrdevproj-frontend-dev-nyuxwr
+swa deploy --env production
+```
+
+### Option 2: Azure Portal (No CLI Required)
 1. Go to [Azure Portal](https://portal.azure.com)
 2. Navigate to **Static Web Apps** → `hjmrdevproj-frontend-dev-nyuxwr`
 3. Click **Overview** → **Browse** to confirm placeholder page
@@ -17,35 +48,20 @@ If your Azure Static Web App shows "Congratulations on your new site!" instead o
 6. Wait 2-3 minutes for deployment
 7. Refresh the frontend URL
 
-### Option 2: Azure CLI (Requires Authentication)
-**Note**: Azure CLI authentication is required for these commands to work.
-
+### Option 3: Azure CLI (Fallback)
 ```bash
-# First authenticate with Azure
+# Ensure Azure CLI is authenticated
 az login
 
-# Then try deployment methods:
-# Method 1: Simple deployment
-az staticwebapp environment set \
-  --name hjmrdevproj-frontend-dev-nyuxwr \
-  --environment-name default \
-  --source webapp-code/frontend.zip
-
-# Method 2: With resource group
+# Deploy using Azure CLI
 az staticwebapp environment set \
   --name hjmrdevproj-frontend-dev-nyuxwr \
   --environment-name default \
   --source webapp-code/frontend.zip \
   --resource-group hj-modroute-rg
-
-# Method 3: Using deployment create
-az staticwebapp deployment create \
-  --name hjmrdevproj-frontend-dev-nyuxwr \
-  --resource-group hj-modroute-rg \
-  --source webapp-code/frontend.zip
 ```
 
-### Option 3: Standalone Script
+### Option 4: Standalone Script
 ```bash
 chmod +x deploy-frontend-only.sh
 ./deploy-frontend-only.sh -g hj-modroute-rg -n hjmrdevproj-frontend-dev-nyuxwr
