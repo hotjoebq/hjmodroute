@@ -15,6 +15,17 @@ The Azure App Service backend at `hjmrdevproj-backend-dev-nyuxwr.azurewebsites.n
 
 User reports that the Azure Portal Deployment Center does not show an upload option.
 
+## ⭐ RECOMMENDED: VS Code Azure Extension Deployment
+
+**See the comprehensive deployment guide**: [COMPREHENSIVE_DEPLOYMENT_GUIDE.md](./COMPREHENSIVE_DEPLOYMENT_GUIDE.md)
+
+The **correct** VS Code Azure extension method uses the Azure Explorer sidebar (NOT Command Palette):
+1. Install Azure App Service extension
+2. Sign in via Command Palette → "Azure: Sign In"
+3. Extract `webapp-code/backend.zip` to a local folder
+4. Azure Explorer → Right-click App Service → "Deploy to Web App..."
+5. Select extracted folder (not ZIP file)
+
 ## Two-Step Deployment Process
 
 ### Step 1: Start the App Service - REQUIRED FIRST
