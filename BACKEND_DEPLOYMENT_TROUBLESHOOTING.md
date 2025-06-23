@@ -1,20 +1,30 @@
 # Backend Deployment Troubleshooting Guide
 
-## Current Issue - UPDATED
-The Azure App Service backend at `hjmrdevproj-backend-dev-nyuxwr.azurewebsites.net` has progressed from HTTP 403 "Site Disabled" to HTTP 503 "Application Error". This indicates:
+## Current Issue - STATUS REGRESSION
+The Azure App Service backend at `hjmrdevproj-backend-dev-nyuxwr.azurewebsites.net` has **regressed** from HTTP 503 back to HTTP 403 "Site Disabled". This indicates:
 
-- ✅ **Progress**: App Service is now running (no longer stopped/disabled)
-- ❌ **Issue**: FastAPI application is not starting correctly after deployment
-- 🎯 **Root Cause**: Backend code needs to be deployed using Azure Portal Advanced Tools (Kudu)
+- ❌ **Regression**: App Service has stopped running again (reverted from HTTP 503 to HTTP 403)
+- 🎯 **Root Cause**: App Service needs to be **started first**, then backend code deployed
+- 📋 **Two-Step Process**: 1) Start App Service, 2) Deploy FastAPI code via Advanced Tools (Kudu)
 
 **Status Progression:**
-- Previous: HTTP 403 "Site Disabled" (App Service stopped)
-- Current: HTTP 503 "Application Error" (App Service running, application failing to start)
+- Initial: HTTP 403 "Site Disabled" (App Service stopped)
+- Temporary: HTTP 503 "Application Error" (App Service running, application failing to start)
+- **Current**: HTTP 403 "Site Disabled" (App Service stopped again)
 - Target: HTTP 200 with proper JSON responses
 
 User reports that the Azure Portal Deployment Center does not show an upload option.
 
-## Alternative Azure Portal Deployment Methods
+## Two-Step Deployment Process
+
+### Step 1: Start the App Service - REQUIRED FIRST
+1. Go to Azure Portal → App Services → `hjmrdevproj-backend-dev-nyuxwr`
+2. Click **"Overview"** in the left sidebar
+3. If the status shows "Stopped", click **"Start"** button
+4. Wait for status to change to "Running"
+5. Verify the service is running before proceeding to Step 2
+
+### Step 2: Deploy Backend Code via Advanced Tools (Kudu) - AFTER STARTING
 
 ### Method 1: Advanced Tools (Kudu) - RECOMMENDED
 1. Go to Azure Portal → App Services → `hjmrdevproj-backend-dev-nyuxwr`
