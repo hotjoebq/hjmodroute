@@ -1,7 +1,18 @@
 # Backend Deployment Troubleshooting Guide
 
-## Current Issue
-The Azure App Service backend at `hjmrdevproj-backend-dev-nyuxwr.azurewebsites.net` is returning HTTP 403 "Site Disabled" instead of serving the FastAPI application. User reports that the Azure Portal Deployment Center does not show an upload option.
+## Current Issue - UPDATED
+The Azure App Service backend at `hjmrdevproj-backend-dev-nyuxwr.azurewebsites.net` has progressed from HTTP 403 "Site Disabled" to HTTP 503 "Application Error". This indicates:
+
+- ✅ **Progress**: App Service is now running (no longer stopped/disabled)
+- ❌ **Issue**: FastAPI application is not starting correctly after deployment
+- 🎯 **Root Cause**: Backend code needs to be deployed using Azure Portal Advanced Tools (Kudu)
+
+**Status Progression:**
+- Previous: HTTP 403 "Site Disabled" (App Service stopped)
+- Current: HTTP 503 "Application Error" (App Service running, application failing to start)
+- Target: HTTP 200 with proper JSON responses
+
+User reports that the Azure Portal Deployment Center does not show an upload option.
 
 ## Alternative Azure Portal Deployment Methods
 
@@ -68,15 +79,16 @@ After deployment using any method:
 
 ## Troubleshooting Common Issues
 
-### "Site Disabled" Error (HTTP 403)
-- App Service is stopped or disabled
-- Go to Overview → Start the App Service
-- Check if there are any configuration issues
+### "Site Disabled" Error (HTTP 403) - RESOLVED
+- ✅ App Service is now running (no longer stopped or disabled)
+- This status has been resolved and progressed to HTTP 503
 
-### "Application Error" (HTTP 503)
-- Application failed to start
-- Check Application Logs: Monitoring → Log stream
-- Verify Python runtime and dependencies
+### "Application Error" (HTTP 503) - CURRENT ISSUE
+- **Root Cause**: FastAPI application code not properly deployed to `/site/wwwroot`
+- **Solution**: Deploy backend code using Advanced Tools (Kudu) method
+- **Verification**: Check that `main.py`, `requirements.txt`, and `startup.sh` exist in `/site/wwwroot`
+- **Logs**: Check Application Logs: Monitoring → Log stream for Python startup errors
+- **Runtime**: Verify Python runtime is configured correctly in Configuration → General settings
 
 ### Missing Files After Upload
 - Ensure all files are uploaded to `/site/wwwroot/`
@@ -97,7 +109,25 @@ After deployment using any method:
 
 ## Next Steps After Successful Deployment
 
-1. Monitor backend status with monitoring script
-2. Test frontend-to-backend connectivity
-3. Verify Azure AI Foundry Model Router integration
-4. Configure proper authentication and routing
+1. **Immediate Verification**:
+   ```bash
+   # Should return HTTP 200 instead of HTTP 503
+   curl https://hjmrdevproj-backend-dev-nyuxwr.azurewebsites.net/health
+   # Expected: {"status": "healthy", "timestamp": 1750632400.123}
+   ```
+
+2. **Monitor Status Change**:
+   ```bash
+   ./monitor-backend-deployment.sh --continuous
+   # Will automatically detect when backend becomes healthy
+   ```
+
+3. **Test Chat Functionality**:
+   - Open frontend: https://black-meadow-061e0720f.1.azurestaticapps.net
+   - Configure Settings with valid Azure AI Foundry credentials
+   - Send test message - should work without HTTP 405 errors
+
+4. **Verify End-to-End Integration**:
+   - Test various prompt complexities
+   - Verify model routing and cost estimation
+   - Confirm no HTTP 405 "Method Not Allowed" errors
