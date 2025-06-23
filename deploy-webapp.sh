@@ -566,7 +566,8 @@ if [ "$DEPLOY_CODE" = true ]; then
           echo "   The error 'getaddrinfo failed' indicates network connectivity problems."
           echo ""
           echo "📋 Manual Deployment Options:"
-          echo "   1. Azure Portal: Go to App Service → Deployment Center → Upload zip file"
+          echo "   1. Azure Portal Advanced Tools (Kudu): Go to App Service → Advanced Tools → Go → Debug console → CMD"
+          echo "      Navigate to /site/wwwroot and drag/drop extracted files from backend.zip"
           echo "   2. VS Code: Use Azure App Service extension to deploy"
           echo "   3. PowerShell: Use Publish-AzWebApp cmdlet"
           echo "   4. FTP: Use FTP credentials from Azure Portal (see above)"
@@ -746,8 +747,10 @@ EOF
     if [ "$BACKEND_DEPLOYMENT_FAILED" = true ]; then
       echo "🔧 Backend Manual Deployment:"
       echo "   1. Go to Azure Portal → App Services → $BACKEND_APP_NAME"
-      echo "   2. Click 'Deployment Center' → 'FTPS credentials' or 'Local Git'"
-      echo "   3. Upload webapp-code/backend.zip or use Git deployment"
+      echo "   2. Click 'Advanced Tools' → 'Go' (opens Kudu console)"
+      echo "   3. Click 'Debug console' → 'CMD', navigate to /site/wwwroot"
+      echo "   4. Extract webapp-code/backend.zip locally and drag/drop files"
+      echo "   5. Restart App Service: Overview → Restart"
     fi
     if [ "$FRONTEND_DEPLOYMENT_FAILED" = true ]; then
       echo "🔧 Frontend Manual Deployment:"
